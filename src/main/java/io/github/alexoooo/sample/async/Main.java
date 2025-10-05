@@ -20,8 +20,9 @@ public class Main {
         long start = System.currentTimeMillis();
 
 //        heapRead(path);
-        pooledRead(path);
+//        pooledRead(path);
 //        directRead(path);
+        pooledIterator(path);
 
         IO.println("took: " + (System.currentTimeMillis() - start));
     }
@@ -70,6 +71,24 @@ public class Main {
                 if (result.endReached()) {
                     break;
                 }
+            }
+
+            IO.println("total: " + total);
+        }
+    }
+
+
+    private static void pooledIterator(Path path) throws ExecutionException {
+        try (FileReaderPooledWorker reader = new FileReaderPooledWorker(
+                path, 32 * 1024, 16, Thread.ofPlatform().factory())
+        ) {
+            reader.start();
+
+            long total = 0;
+            while (reader.hasNext()) {
+                FileReaderWorker.Chunk value = reader.next();
+                total += value.length;
+                reader.release(value);
             }
 
             IO.println("total: " + total);

@@ -16,7 +16,6 @@ import java.util.concurrent.ThreadFactory;
 public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReaderWorker.Chunk> {
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
-//    private final int chunkSize;
 
     private @Nullable InputStream inputStream;
 
@@ -25,7 +24,6 @@ public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReader
     public FileReaderPooledWorker(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
         super(() -> new FileReaderWorker.Chunk(chunkSize), queueSize, threadFactory);
         this.path = path;
-//        this.chunkSize = chunkSize;
     }
 
 

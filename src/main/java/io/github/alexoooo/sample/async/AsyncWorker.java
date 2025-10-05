@@ -5,7 +5,7 @@ import java.util.concurrent.ExecutionException;
 
 
 public interface AsyncWorker<T>
-        extends AutoCloseable
+        extends CloseableIterator<T>
 {
     void start() throws ExecutionException;
 

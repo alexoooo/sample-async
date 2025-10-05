@@ -17,6 +17,26 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
     private static final int queueFullSleepMillis = 10;
 
 
+    private record IteratorNext<T>(
+            @Nullable T next,
+            boolean checked
+    ) {
+        private static final IteratorNext<?> didNotCheck = new IteratorNext<>(null, false);
+        private static final IteratorNext<?> endReached = new IteratorNext<>(null, true);
+        @SuppressWarnings("unchecked")
+        private static <T> IteratorNext<T> didNotCheck() {
+            return (IteratorNext<T>) didNotCheck;
+        }
+        @SuppressWarnings("unchecked")
+        private static <T> IteratorNext<T> endReached() {
+            return (IteratorNext<T>) endReached;
+        }
+        private static <T> IteratorNext<T> of(T value) {
+            return new IteratorNext<>(value, true);
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSize;
     private final ThreadFactory threadFactory;
@@ -31,6 +51,10 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
     private final AtomicReference<@Nullable Exception> firstException = new AtomicReference<>();
 
     private final Deque<T> deque = new ConcurrentLinkedDeque<>();
+    private final Object dequeAddMonitor = new Object();
+    private final Object dequeRemoveMonitor = new Object();
+
+    private final AtomicReference<IteratorNext<T>> iteratorNext = new AtomicReference<>(IteratorNext.didNotCheck());
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -66,11 +90,21 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
     @Override
     public final AsyncResult<T> poll() throws ExecutionException {
+        return poll(false);
+    }
+
+
+    @SuppressWarnings("ConstantValue")
+    private AsyncResult<T> poll(boolean forIterator) throws ExecutionException {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
 
         throwExecutionExceptionIfRequired();
+
+        if (! forIterator && ! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+            throw new IllegalStateException("Iteration in progress");
+        }
 
         if (deque.isEmpty()) {
             if (closeRan.getCount() == 0) {
@@ -80,7 +114,15 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
         }
 
         T next = deque.pollFirst();
-        return AsyncResult.ofPossiblyReady(next);
+        if (next != null) {
+            synchronized (dequeRemoveMonitor) {
+                dequeRemoveMonitor.notify();
+            }
+            return AsyncResult.of(next);
+        }
+        else {
+            return AsyncResult.notReady();
+        }
     }
 
 
@@ -159,7 +201,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
     private void workInThread() {
         if (deque.size() >= queueSize) {
-            sleepInThread();
+            sleepForPolling(dequeRemoveMonitor);
             return;
         }
 
@@ -174,13 +216,19 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
         if (nextOrNull != null) {
             deque.addLast(nextOrNull);
+            synchronized (dequeAddMonitor) {
+                dequeAddMonitor.notify();
+            }
         }
     }
 
 
-    private void sleepInThread() {
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+    private void sleepForPolling(Object monitor) {
         try {
-            Thread.sleep(queueFullSleepMillis);
+            synchronized (monitor) {
+                monitor.wait(queueFullSleepMillis);
+            }
         }
         catch (InterruptedException e) {
             throw new IllegalStateException(e);
@@ -198,6 +246,56 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
         finally {
             closeRan.countDown();
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Override
+    public boolean hasNext() {
+        IteratorNext<T> current = iteratorNext.get();
+        if (current.checked) {
+            return current.next != null;
+        }
+
+        try {
+            while (true) {
+                AsyncResult<T> result = poll(true);
+                if (result.value() == null && ! result.endReached()) {
+                    sleepForPolling(dequeAddMonitor);
+                    continue;
+                }
+
+                boolean hasValue = result.value() != null;
+                IteratorNext<T> check =
+                        hasValue
+                        ? IteratorNext.of(result.value())
+                        : IteratorNext.endReached();
+
+                boolean set = iteratorNext.compareAndSet(current, check);
+                if (! set) {
+                    throw new IllegalStateException("Concurrent modification");
+                }
+
+                return hasValue;
+            }
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+    }
+
+
+    @Override
+    public T next() {
+        if (! hasNext()) {
+            throw new IllegalStateException("Next not available");
+        }
+
+        IteratorNext<T> next = iteratorNext.getAndSet(IteratorNext.didNotCheck());
+        if (next.next == null) {
+            throw new IllegalStateException("Next expected");
+        }
+        return next.next;
     }
 
 
