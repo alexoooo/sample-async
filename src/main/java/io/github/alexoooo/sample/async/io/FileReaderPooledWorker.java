@@ -1,7 +1,6 @@
 package io.github.alexoooo.sample.async.io;
 
 
-import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 import io.github.alexoooo.sample.async.AbstractPooledAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
@@ -12,8 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 
 
-
-public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReaderWorker.Chunk> {
+public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileChunk> {
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
 
@@ -22,7 +20,7 @@ public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReader
 
     //-----------------------------------------------------------------------------------------------------------------
     public FileReaderPooledWorker(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
-        super(() -> new FileReaderWorker.Chunk(chunkSize), queueSize, threadFactory);
+        super(() -> new FileChunk(chunkSize), queueSize, threadFactory);
         this.path = path;
     }
 
@@ -35,7 +33,7 @@ public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReader
 
 
     @Override
-    protected boolean tryComputeNext(FileReaderWorker.Chunk chunk) throws Exception {
+    protected boolean tryComputeNext(FileChunk chunk) throws Exception {
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {
             endReached();
@@ -48,8 +46,6 @@ public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReader
 
     @Override
     protected void closeImpl() throws Exception {
-        if (inputStream != null) {
-            inputStream.close();
-        }
+        Objects.requireNonNull(inputStream).close();
     }
 }

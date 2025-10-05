@@ -1,10 +1,10 @@
 package io.github.alexoooo.sample.async;
 
 
+import io.github.alexoooo.sample.async.io.FileChunk;
 import io.github.alexoooo.sample.async.io.FileReaderPooledWorker;
 import io.github.alexoooo.sample.async.io.FileReaderWorker;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +37,7 @@ public class Main {
 
             long total = 0;
             while (true) {
-                AsyncResult<FileReaderWorker.Chunk> result = reader.poll();
+                AsyncResult<FileChunk> result = reader.poll();
 
                 if (result.value() != null) {
                     total += result.value().length;
@@ -61,7 +61,7 @@ public class Main {
 
             long total = 0;
             while (true) {
-                AsyncResult<FileReaderWorker.Chunk> result = reader.poll();
+                AsyncResult<FileChunk> result = reader.poll();
 
                 if (result.value() != null) {
                     total += result.value().length;
@@ -81,12 +81,13 @@ public class Main {
     private static void pooledIterator(Path path) throws ExecutionException {
         try (FileReaderPooledWorker reader = new FileReaderPooledWorker(
                 path, 32 * 1024, 16, Thread.ofPlatform().factory())
+//                path, 32 * 1024, 16, Thread.ofVirtual().factory())
         ) {
             reader.start();
 
             long total = 0;
             while (reader.hasNext()) {
-                FileReaderWorker.Chunk value = reader.next();
+                FileChunk value = reader.next();
                 total += value.length;
                 reader.release(value);
             }

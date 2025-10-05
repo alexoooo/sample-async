@@ -11,19 +11,7 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 
 
-public class FileReaderWorker extends AbstractAsyncWorker<FileReaderWorker.Chunk> {
-    //-----------------------------------------------------------------------------------------------------------------
-    public static class Chunk {
-        public final byte[] bytes;
-        public int length;
-
-        public Chunk(int chunkSize) {
-            bytes = new byte[chunkSize];
-            length = 0;
-        }
-    }
-
-
+public class FileReaderWorker extends AbstractAsyncWorker<FileChunk> {
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
     private final int chunkSize;
@@ -47,8 +35,8 @@ public class FileReaderWorker extends AbstractAsyncWorker<FileReaderWorker.Chunk
 
 
     @Override
-    protected FileReaderWorker.@Nullable Chunk tryComputeNext() throws Exception {
-        Chunk chunk = new Chunk(chunkSize);
+    protected @Nullable FileChunk tryComputeNext() throws Exception {
+        FileChunk chunk = new FileChunk(chunkSize);
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {
             return endReached();
@@ -60,8 +48,6 @@ public class FileReaderWorker extends AbstractAsyncWorker<FileReaderWorker.Chunk
 
     @Override
     protected void closeImpl() throws Exception {
-        if (inputStream != null) {
-            inputStream.close();
-        }
+        Objects.requireNonNull(inputStream).close();
     }
 }

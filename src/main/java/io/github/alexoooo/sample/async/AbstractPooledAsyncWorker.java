@@ -17,7 +17,7 @@ public abstract class AbstractPooledAsyncWorker<T>
     //-----------------------------------------------------------------------------------------------------------------
     private final Supplier<T> creator;
     private final Queue<T> pool;
-    private @Nullable T next;
+    private @Nullable T pendingModel;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -63,7 +63,7 @@ public abstract class AbstractPooledAsyncWorker<T>
 
         boolean success = tryComputeNext(item);
         if (success) {
-            next = null;
+            pendingModel = null;
             return item;
         }
         return null;
@@ -71,13 +71,13 @@ public abstract class AbstractPooledAsyncWorker<T>
 
 
     private @Nullable T pollNext() {
-        T existing = next;
+        T existing = pendingModel;
         if (existing != null) {
             return existing;
         }
 
         T polled = pool.poll();
-        next = polled;
+        pendingModel = polled;
         return polled;
     }
 
