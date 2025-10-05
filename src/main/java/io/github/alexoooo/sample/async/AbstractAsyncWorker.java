@@ -18,7 +18,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private final int queueSize;
+    protected final int queueSize;
     private final ThreadFactory threadFactory;
 
     private final AtomicBoolean startRequested = new AtomicBoolean();
@@ -42,7 +42,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public void start() throws ExecutionException {
+    public final void start() throws ExecutionException {
         boolean unique = startRequested.compareAndSet(false, true);
         if (! unique) {
             throw new IllegalStateException("Start already requested");
@@ -65,7 +65,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
 
     @Override
-    public AsyncResult<T> poll() throws ExecutionException {
+    public final AsyncResult<T> poll() throws ExecutionException {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
@@ -85,7 +85,11 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
 
     @Override
-    public void close() throws ExecutionException {
+    public final void close() throws ExecutionException {
+        if (! started) {
+            return;
+        }
+
         boolean unique = closeRequested.compareAndSet(false, true);
         if (! unique) {
             return;
@@ -108,7 +112,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
     }
 
 
-    private void throwExecutionExceptionIfRequired() throws ExecutionException {
+    protected void throwExecutionExceptionIfRequired() throws ExecutionException {
         Exception exception = firstException.get();
         if (exception == null) {
             return;

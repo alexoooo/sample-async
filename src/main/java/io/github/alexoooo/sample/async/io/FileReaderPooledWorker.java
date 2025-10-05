@@ -2,6 +2,7 @@ package io.github.alexoooo.sample.async.io;
 
 
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
+import io.github.alexoooo.sample.async.AbstractPooledAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
 import java.io.InputStream;
@@ -11,50 +12,39 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 
 
-public class FileReaderWorker extends AbstractAsyncWorker<FileReaderWorker.Chunk> {
-    //-----------------------------------------------------------------------------------------------------------------
-    public static class Chunk {
-        public final byte[] bytes;
-        public int length;
 
-        public Chunk(int chunkSize) {
-            bytes = new byte[chunkSize];
-            length = 0;
-        }
-    }
-
-
+public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileReaderWorker.Chunk> {
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
-    private final int chunkSize;
+//    private final int chunkSize;
 
     private @Nullable InputStream inputStream;
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public FileReaderWorker(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
-        super(queueSize, threadFactory);
+    public FileReaderPooledWorker(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
+        super(() -> new FileReaderWorker.Chunk(chunkSize), queueSize, threadFactory);
         this.path = path;
-        this.chunkSize = chunkSize;
+//        this.chunkSize = chunkSize;
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    protected void init() throws Exception {
+    protected void doInit() throws Exception {
         inputStream = Files.newInputStream(path);
     }
 
 
     @Override
-    protected FileReaderWorker.@Nullable Chunk tryComputeNext() throws Exception {
-        Chunk chunk = new Chunk(chunkSize);
+    protected boolean tryComputeNext(FileReaderWorker.Chunk chunk) throws Exception {
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {
-            return endReached();
+            endReached();
+            return false;
         }
         chunk.length = read;
-        return chunk;
+        return chunk.length > 0;
     }
 
 
