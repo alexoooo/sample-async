@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
     //-----------------------------------------------------------------------------------------------------------------
-    private static final int queueFullSleepMillis = 10;
+    private static final int queueFullSleepMillis = 25;
 
 
     private record IteratorNext<T>(
@@ -51,8 +51,8 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
     private final AtomicReference<@Nullable Exception> firstException = new AtomicReference<>();
 
     private final Deque<T> deque = new ConcurrentLinkedDeque<>();
-    private final Object dequeAddMonitor = new Object();
-    private final Object dequeRemoveMonitor = new Object();
+    private final Object hasNextMonitor = new Object();
+    private final Object eventLoopMonitor = new Object();
 
     private final AtomicReference<IteratorNext<T>> iteratorNext = new AtomicReference<>(IteratorNext.didNotCheck());
 
@@ -115,8 +115,8 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
         T next = deque.pollFirst();
         if (next != null) {
-            synchronized (dequeRemoveMonitor) {
-                dequeRemoveMonitor.notify();
+            synchronized (eventLoopMonitor) {
+                eventLoopMonitor.notify();
             }
             return AsyncResult.of(next);
         }
@@ -148,6 +148,10 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
         }
         catch (InterruptedException e) {
             throw new IllegalStateException(e);
+        }
+
+        synchronized (hasNextMonitor) {
+            hasNextMonitor.notify();
         }
 
         throwExecutionExceptionIfRequired();
@@ -201,7 +205,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
     private void workInThread() {
         if (deque.size() >= queueSize) {
-            sleepForPolling(dequeRemoveMonitor);
+            sleepForPolling(eventLoopMonitor);
             return;
         }
 
@@ -216,8 +220,8 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
         if (nextOrNull != null) {
             deque.addLast(nextOrNull);
-            synchronized (dequeAddMonitor) {
-                dequeAddMonitor.notify();
+            synchronized (hasNextMonitor) {
+                hasNextMonitor.notify();
             }
         }
     }
@@ -261,7 +265,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
             while (true) {
                 AsyncResult<T> result = poll(true);
                 if (result.value() == null && ! result.endReached()) {
-                    sleepForPolling(dequeAddMonitor);
+                    sleepForPolling(hasNextMonitor);
                     continue;
                 }
 

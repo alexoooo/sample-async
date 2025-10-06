@@ -25,13 +25,6 @@ public record AsyncResult<T>(
         return new AsyncResult<>(value, false);
     }
 
-
-    public static <T> AsyncResult<T> ofPossiblyReady(@Nullable T value) {
-        return value != null
-                ? of(value)
-                : notReady();
-    }
-
     public static <T> AsyncResult<T> of(@Nullable T value, boolean endReached) {
         if (value != null) {
             return new AsyncResult<>(value, endReached);
