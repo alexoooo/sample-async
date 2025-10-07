@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 
 public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
@@ -123,6 +124,35 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
         else {
             return AsyncResult.notReady();
         }
+    }
+
+
+    @Override
+    public final boolean poll(Consumer<T> consumer) throws ExecutionException {
+        if (! started) {
+            throw new IllegalStateException("Not started");
+        }
+        throwExecutionExceptionIfRequired();
+        if (! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+            throw new IllegalStateException("Iteration in progress");
+        }
+
+        if (deque.isEmpty()) {
+            return closeRan.getCount() != 0;
+        }
+
+        while (true) {
+            T next = deque.pollFirst();
+            if (next == null) {
+                break;
+            }
+            consumer.accept(next);
+        }
+
+        synchronized (eventLoopMonitor) {
+            eventLoopMonitor.notify();
+        }
+        return true;
     }
 
 
