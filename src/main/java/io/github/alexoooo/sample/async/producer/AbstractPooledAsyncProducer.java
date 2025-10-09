@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async;
+package io.github.alexoooo.sample.async.producer;
 
 
 import org.jspecify.annotations.Nullable;
@@ -10,9 +10,9 @@ import java.util.concurrent.ThreadFactory;
 import java.util.function.Supplier;
 
 
-public abstract class AbstractPooledAsyncWorker<T>
-        extends AbstractAsyncWorker<T>
-        implements PooledAsyncWorker<T>
+public abstract class AbstractPooledAsyncProducer<T>
+        extends AbstractAsyncProducer<T>
+        implements PooledAsyncProducer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
     private final Supplier<T> creator;
@@ -21,7 +21,7 @@ public abstract class AbstractPooledAsyncWorker<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public AbstractPooledAsyncWorker(Supplier<T> creator, int queueSize, ThreadFactory threadFactory) {
+    public AbstractPooledAsyncProducer(Supplier<T> creator, int queueSize, ThreadFactory threadFactory) {
         super(queueSize, threadFactory);
         this.creator = creator;
         pool = new ArrayBlockingQueue<T>(queueSize);

@@ -2,8 +2,10 @@ package io.github.alexoooo.sample.async;
 
 
 import io.github.alexoooo.sample.async.io.FileChunk;
-import io.github.alexoooo.sample.async.io.FileReaderPooledWorker;
-import io.github.alexoooo.sample.async.io.FileReaderWorker;
+import io.github.alexoooo.sample.async.io.FileLineCounter;
+import io.github.alexoooo.sample.async.io.FileReaderPooledProducer;
+import io.github.alexoooo.sample.async.io.FileReaderProducer;
+import io.github.alexoooo.sample.async.producer.AsyncResult;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -30,31 +32,35 @@ public class Main {
 
     //-----------------------------------------------------------------------------------------------------------------
     private static void heapRead(Path path) throws ExecutionException {
-        try (FileReaderWorker reader = new FileReaderWorker(
-                path, 32 * 1024, 16, Thread.ofPlatform().factory())
+        FileLineCounter counter = new FileLineCounter(
+                16, Thread.ofPlatform().factory());
+
+        try (FileReaderProducer reader = new FileReaderProducer(
+                path, 32 * 1024, 16, Thread.ofPlatform().factory());
+             counter
         ) {
             reader.start();
+            counter.start();
 
-            long total = 0;
             while (true) {
                 AsyncResult<FileChunk> result = reader.poll();
 
                 if (result.value() != null) {
-                    total += result.value().length;
+                    counter.put(result.value());
                 }
 
                 if (result.endReached()) {
                     break;
                 }
             }
-
-            IO.println("total: " + total);
         }
+
+        IO.println("total: " + counter.byteCount() + " | " + counter.lineCount());
     }
 
 
     private static void pooledRead(Path path) throws ExecutionException {
-        try (FileReaderPooledWorker reader = new FileReaderPooledWorker(
+        try (FileReaderPooledProducer reader = new FileReaderPooledProducer(
                 path, 32 * 1024, 16, Thread.ofPlatform().factory())
         ) {
             reader.start();
@@ -79,20 +85,25 @@ public class Main {
 
 
     private static void pooledIterator(Path path) throws ExecutionException {
-        try (FileReaderPooledWorker reader = new FileReaderPooledWorker(
+        try (FileReaderPooledProducer reader = new FileReaderPooledProducer(
                 path, 32 * 1024, 16, Thread.ofPlatform().factory())
-//                path, 32 * 1024, 16, Thread.ofVirtual().factory())
         ) {
             reader.start();
 
             long total = 0;
+            int lines = 1;
             while (reader.hasNext()) {
                 FileChunk value = reader.next();
+                for (int i = 0; i < value.length; i++) {
+                    if (value.bytes[i] == '\n') {
+                        lines++;
+                    }
+                }
                 total += value.length;
                 reader.release(value);
             }
 
-            IO.println("total: " + total);
+            IO.println("total: " + total + " | " + lines);
         }
     }
 
@@ -102,15 +113,21 @@ public class Main {
             byte[] buffer = new byte[32 * 1024];
 
             long total = 0;
+            int lines = 1;
             while (true) {
                 int read = reader.read(buffer);
                 if (read == -1) {
                     break;
                 }
+                for (int i = 0; i < read; i++) {
+                    if (buffer[i] == '\n') {
+                        lines++;
+                    }
+                }
                 total += read;
             }
 
-            IO.println("total: " + total);
+            IO.println("total: " + total + " | " + lines);
         }
     }
 }

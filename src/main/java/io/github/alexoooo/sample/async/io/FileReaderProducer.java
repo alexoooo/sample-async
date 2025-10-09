@@ -1,7 +1,7 @@
 package io.github.alexoooo.sample.async.io;
 
 
-import io.github.alexoooo.sample.async.AbstractPooledAsyncWorker;
+import io.github.alexoooo.sample.async.producer.AbstractAsyncProducer;
 import org.jspecify.annotations.Nullable;
 
 import java.io.InputStream;
@@ -11,36 +11,38 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 
 
-public class FileReaderPooledWorker extends AbstractPooledAsyncWorker<FileChunk> {
+public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
+    private final int chunkSize;
 
     private @Nullable InputStream inputStream;
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public FileReaderPooledWorker(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
-        super(() -> new FileChunk(chunkSize), queueSize, threadFactory);
+    public FileReaderProducer(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
+        super(queueSize, threadFactory);
         this.path = path;
+        this.chunkSize = chunkSize;
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    protected void doInit() throws Exception {
+    protected void init() throws Exception {
         inputStream = Files.newInputStream(path);
     }
 
 
     @Override
-    protected boolean tryComputeNext(FileChunk chunk) throws Exception {
+    protected @Nullable FileChunk tryComputeNext() throws Exception {
+        FileChunk chunk = new FileChunk(chunkSize);
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {
-            endReached();
-            return false;
+            return endReached();
         }
         chunk.length = read;
-        return chunk.length > 0;
+        return chunk;
     }
 
 

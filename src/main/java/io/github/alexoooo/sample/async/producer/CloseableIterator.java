@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async;
+package io.github.alexoooo.sample.async.producer;
 
 import java.util.Iterator;
 

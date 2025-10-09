@@ -3,65 +3,41 @@ package io.github.alexoooo.sample.async;
 
 import org.jspecify.annotations.Nullable;
 
-import java.util.Deque;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 
-public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
+public abstract class AbstractAsyncWorker
+        implements AsyncWorker
+{
     //-----------------------------------------------------------------------------------------------------------------
-    private static final int queueFullSleepMillis = 25;
+    private final ThreadFactory threadFactory;
+
+    private final AtomicBoolean startRequested = new AtomicBoolean();
+    protected volatile boolean started = false;
+    protected final AtomicBoolean closeRequested = new AtomicBoolean();
+    protected final CountDownLatch closed = new CountDownLatch(1);
+    private final CountDownLatch initiated = new CountDownLatch(1);
+    private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
+    protected final AtomicReference<@Nullable Exception> firstException = new AtomicReference<>();
 
 
-    private record IteratorNext<T>(
-            @Nullable T next,
-            boolean checked
-    ) {
-        private static final IteratorNext<?> didNotCheck = new IteratorNext<>(null, false);
-        private static final IteratorNext<?> endReached = new IteratorNext<>(null, true);
-        @SuppressWarnings("unchecked")
-        private static <T> IteratorNext<T> didNotCheck() {
-            return (IteratorNext<T>) didNotCheck;
-        }
-        @SuppressWarnings("unchecked")
-        private static <T> IteratorNext<T> endReached() {
-            return (IteratorNext<T>) endReached;
-        }
-        private static <T> IteratorNext<T> of(T value) {
-            return new IteratorNext<>(value, true);
-        }
+    //-----------------------------------------------------------------------------------------------------------------
+    protected AbstractAsyncWorker(ThreadFactory threadFactory) {
+        this.threadFactory = threadFactory;
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    protected final int queueSize;
-    private final ThreadFactory threadFactory;
-
-    private final AtomicBoolean startRequested = new AtomicBoolean();
-    private volatile boolean started = false;
-    private final AtomicBoolean closeRequested = new AtomicBoolean();
-    private final CountDownLatch closeRan = new CountDownLatch(1);
-    private final AtomicBoolean endReached = new AtomicBoolean();
-    private final CountDownLatch initRan = new CountDownLatch(1);
-    private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
-    private final AtomicReference<@Nullable Exception> firstException = new AtomicReference<>();
-
-    private final Deque<T> deque = new ConcurrentLinkedDeque<>();
-    private final Object hasNextMonitor = new Object();
-    private final Object eventLoopMonitor = new Object();
-
-    private final AtomicReference<IteratorNext<T>> iteratorNext = new AtomicReference<>(IteratorNext.didNotCheck());
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    public AbstractAsyncWorker(int queueSize, ThreadFactory threadFactory) {
-        this.queueSize = queueSize;
-        this.threadFactory = threadFactory;
+    protected void throwExecutionExceptionIfRequired() throws ExecutionException {
+        Exception exception = firstException.get();
+        if (exception == null) {
+            return;
+        }
+        throw new ExecutionException(exception);
     }
 
 
@@ -78,7 +54,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
         thread.start();
 
         try {
-            initRan.await();
+            initiated.await();
         }
         catch (InterruptedException e) {
             throw new IllegalStateException(e);
@@ -86,114 +62,6 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
 
         throwExecutionExceptionIfRequired();
         started = true;
-    }
-
-
-    @Override
-    public final AsyncResult<T> poll() throws ExecutionException {
-        return poll(false);
-    }
-
-
-    @SuppressWarnings("ConstantValue")
-    private AsyncResult<T> poll(boolean forIterator) throws ExecutionException {
-        if (! started) {
-            throw new IllegalStateException("Not started");
-        }
-
-        throwExecutionExceptionIfRequired();
-
-        if (! forIterator && ! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
-            throw new IllegalStateException("Iteration in progress");
-        }
-
-        if (deque.isEmpty()) {
-            if (closeRan.getCount() == 0) {
-                return AsyncResult.endReachedWithoutValue();
-            }
-            return AsyncResult.notReady();
-        }
-
-        T next = deque.pollFirst();
-        if (next != null) {
-            synchronized (eventLoopMonitor) {
-                eventLoopMonitor.notify();
-            }
-            return AsyncResult.of(next);
-        }
-        else {
-            return AsyncResult.notReady();
-        }
-    }
-
-
-    @Override
-    public final boolean poll(Consumer<T> consumer) throws ExecutionException {
-        if (! started) {
-            throw new IllegalStateException("Not started");
-        }
-        throwExecutionExceptionIfRequired();
-        if (! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
-            throw new IllegalStateException("Iteration in progress");
-        }
-
-        if (deque.isEmpty()) {
-            return closeRan.getCount() != 0;
-        }
-
-        while (true) {
-            T next = deque.pollFirst();
-            if (next == null) {
-                break;
-            }
-            consumer.accept(next);
-        }
-
-        synchronized (eventLoopMonitor) {
-            eventLoopMonitor.notify();
-        }
-        return true;
-    }
-
-
-    @Override
-    public final void close() throws ExecutionException {
-        if (! started) {
-            return;
-        }
-
-        boolean unique = closeRequested.compareAndSet(false, true);
-        if (! unique) {
-            return;
-        }
-
-        Thread thread = threadHolder.getAndSet(null);
-        if (thread == null) {
-            throw new IllegalStateException();
-        }
-
-        try {
-            closeRan.await();
-            thread.join();
-        }
-        catch (InterruptedException e) {
-            throw new IllegalStateException(e);
-        }
-
-        synchronized (hasNextMonitor) {
-            hasNextMonitor.notify();
-        }
-
-        throwExecutionExceptionIfRequired();
-    }
-
-
-    protected void throwExecutionExceptionIfRequired() throws ExecutionException {
-        Exception exception = firstException.get();
-        if (exception == null) {
-            return;
-        }
-        throw new ExecutionException(exception);
     }
 
 
@@ -213,7 +81,7 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
             firstException.compareAndSet(null, e);
         }
         finally {
-            initRan.countDown();
+            initiated.countDown();
         }
     }
 
@@ -221,51 +89,16 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
     private void loopInThread() {
         try {
             while (! closeRequested.get() &&
-                    ! endReached.get() &&
                     firstException.get() == null
             ) {
-                workInThread();
+                boolean hasMoreWork = work();
+                if (! hasMoreWork) {
+                    break;
+                }
             }
         }
         catch (Exception e) {
             firstException.compareAndSet(null, e);
-        }
-    }
-
-
-    private void workInThread() {
-        if (deque.size() >= queueSize) {
-            sleepForPolling(eventLoopMonitor);
-            return;
-        }
-
-        T nextOrNull;
-        try {
-            nextOrNull = tryComputeNext();
-        }
-        catch (Exception e) {
-            firstException.compareAndSet(null, e);
-            return;
-        }
-
-        if (nextOrNull != null) {
-            deque.addLast(nextOrNull);
-            synchronized (hasNextMonitor) {
-                hasNextMonitor.notify();
-            }
-        }
-    }
-
-
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    private void sleepForPolling(Object monitor) {
-        try {
-            synchronized (monitor) {
-                monitor.wait(queueFullSleepMillis);
-            }
-        }
-        catch (InterruptedException e) {
-            throw new IllegalStateException(e);
         }
     }
 
@@ -278,74 +111,52 @@ public abstract class AbstractAsyncWorker<T> implements AsyncWorker<T> {
             firstException.compareAndSet(null, e);
         }
         finally {
-            closeRan.countDown();
+            closed.countDown();
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public boolean hasNext() {
-        IteratorNext<T> current = iteratorNext.get();
-        if (current.checked) {
-            return current.next != null;
+    public final void close() throws ExecutionException {
+        if (! started) {
+            return;
+        }
+
+        boolean unique = closeRequested.compareAndSet(false, true);
+        if (! unique) {
+            return;
+        }
+
+        Thread thread = threadHolder.getAndSet(null);
+        if (thread == null) {
+            throw new IllegalStateException();
         }
 
         try {
-            while (true) {
-                AsyncResult<T> result = poll(true);
-                if (result.value() == null && ! result.endReached()) {
-                    sleepForPolling(hasNextMonitor);
-                    continue;
-                }
-
-                boolean hasValue = result.value() != null;
-                IteratorNext<T> check =
-                        hasValue
-                        ? IteratorNext.of(result.value())
-                        : IteratorNext.endReached();
-
-                boolean set = iteratorNext.compareAndSet(current, check);
-                if (! set) {
-                    throw new IllegalStateException("Concurrent modification");
-                }
-
-                return hasValue;
-            }
+            closed.await();
+            thread.join();
         }
-        catch (ExecutionException e) {
-            throw new RuntimeException(e.getCause());
-        }
-    }
-
-
-    @Override
-    public T next() {
-        if (! hasNext()) {
-            throw new IllegalStateException("Next not available");
+        catch (InterruptedException e) {
+            throw new IllegalStateException(e);
         }
 
-        IteratorNext<T> next = iteratorNext.getAndSet(IteratorNext.didNotCheck());
-        if (next.next == null) {
-            throw new IllegalStateException("Next expected");
-        }
-        return next.next;
+//        synchronized (hasNextMonitor) {
+//            hasNextMonitor.notify();
+//        }
+
+        throwExecutionExceptionIfRequired();
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    protected @Nullable T endReached() {
-        boolean unique = endReached.compareAndSet(false, true);
-        if (! unique) {
-            throw new IllegalStateException("End already reached");
-        }
-        return null;
-    }
-
-
     abstract protected void init() throws Exception;
 
-    abstract protected @Nullable T tryComputeNext() throws Exception;
+    /**
+     * @return true if there is more work to do
+     */
+    abstract protected boolean work() throws Exception;
+
 
     abstract protected void closeImpl() throws Exception;
 }
