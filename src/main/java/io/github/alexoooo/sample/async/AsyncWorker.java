@@ -1,15 +1,12 @@
 package io.github.alexoooo.sample.async;
 
 
-import java.util.concurrent.ExecutionException;
-
-
 public interface AsyncWorker
         extends AutoCloseable
 {
-    void start() throws ExecutionException;
+    void start();
 
 
     @Override
-    void close() throws ExecutionException;
+    void close();
 }

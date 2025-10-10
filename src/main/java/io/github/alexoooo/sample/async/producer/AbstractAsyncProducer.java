@@ -6,8 +6,6 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,13 +60,13 @@ public abstract class AbstractAsyncProducer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public final AsyncResult<T> poll() throws ExecutionException {
+    public final AsyncResult<T> poll() {
         return poll(false);
     }
 
 
     @SuppressWarnings("ConstantValue")
-    private AsyncResult<T> poll(boolean forIterator) throws ExecutionException {
+    private AsyncResult<T> poll(boolean forIterator) {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
@@ -100,7 +98,7 @@ public abstract class AbstractAsyncProducer<T>
 
 
     @Override
-    public final boolean poll(Consumer<T> consumer) throws ExecutionException {
+    public final boolean poll(Consumer<T> consumer) {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
@@ -177,30 +175,25 @@ public abstract class AbstractAsyncProducer<T>
             return current.next != null;
         }
 
-        try {
-            while (true) {
-                AsyncResult<T> result = poll(true);
-                if (result.value() == null && ! result.endReached()) {
-                    sleepForPolling(hasNextMonitor);
-                    continue;
-                }
-
-                boolean hasValue = result.value() != null;
-                IteratorNext<T> check =
-                        hasValue
-                        ? IteratorNext.of(result.value())
-                        : IteratorNext.endReached();
-
-                boolean set = iteratorNext.compareAndSet(current, check);
-                if (! set) {
-                    throw new IllegalStateException("Concurrent modification");
-                }
-
-                return hasValue;
+        while (true) {
+            AsyncResult<T> result = poll(true);
+            if (result.value() == null && ! result.endReached()) {
+                sleepForPolling(hasNextMonitor);
+                continue;
             }
-        }
-        catch (ExecutionException e) {
-            throw new RuntimeException(e.getCause());
+
+            boolean hasValue = result.value() != null;
+            IteratorNext<T> check =
+                    hasValue
+                    ? IteratorNext.of(result.value())
+                    : IteratorNext.endReached();
+
+            boolean set = iteratorNext.compareAndSet(current, check);
+            if (! set) {
+                throw new IllegalStateException("Concurrent modification");
+            }
+
+            return hasValue;
         }
     }
 
@@ -229,5 +222,4 @@ public abstract class AbstractAsyncProducer<T>
     }
 
     abstract protected @Nullable T tryComputeNext() throws Exception;
-
 }

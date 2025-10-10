@@ -10,7 +10,6 @@ import io.github.alexoooo.sample.async.producer.AsyncResult;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.ExecutionException;
 
 
 public class Main {
@@ -21,17 +20,17 @@ public class Main {
 
         long start = System.currentTimeMillis();
 
-//        heapRead(path);
+        heapRead(path);
 //        pooledRead(path);
 //        directRead(path);
-        pooledIterator(path);
+//        pooledIterator(path);
 
         IO.println("took: " + (System.currentTimeMillis() - start));
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private static void heapRead(Path path) throws ExecutionException {
+    private static void heapRead(Path path) {
         FileLineCounter counter = new FileLineCounter(
                 16, Thread.ofPlatform().factory());
 
@@ -59,7 +58,7 @@ public class Main {
     }
 
 
-    private static void pooledRead(Path path) throws ExecutionException {
+    private static void pooledRead(Path path) {
         try (FileReaderPooledProducer reader = new FileReaderPooledProducer(
                 path, 32 * 1024, 16, Thread.ofPlatform().factory())
         ) {
@@ -84,7 +83,7 @@ public class Main {
     }
 
 
-    private static void pooledIterator(Path path) throws ExecutionException {
+    private static void pooledIterator(Path path) {
         try (FileReaderPooledProducer reader = new FileReaderPooledProducer(
                 path, 32 * 1024, 16, Thread.ofPlatform().factory())
         ) {

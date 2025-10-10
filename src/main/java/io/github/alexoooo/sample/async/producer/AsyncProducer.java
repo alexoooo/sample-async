@@ -1,22 +1,18 @@
 package io.github.alexoooo.sample.async.producer;
 
 
-import java.util.concurrent.ExecutionException;
+import io.github.alexoooo.sample.async.AsyncWorker;
+
 import java.util.function.Consumer;
 
 
 public interface AsyncProducer<T>
-        extends CloseableIterator<T>
+        extends AsyncWorker, CloseableIterator<T>
 {
-    void start() throws ExecutionException;
-
-    AsyncResult<T> poll() throws ExecutionException;
+    AsyncResult<T> poll();
 
     /**
      * @return true if more data might be available (the end of stream has not been reached yet)
      */
-    boolean poll(Consumer<T> consumer) throws ExecutionException;
-
-    @Override
-    void close() throws ExecutionException;
+    boolean poll(Consumer<T> consumer);
 }

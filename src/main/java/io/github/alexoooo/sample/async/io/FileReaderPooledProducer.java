@@ -11,7 +11,9 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 
 
-public class FileReaderPooledProducer extends AbstractPooledAsyncProducer<FileChunk> {
+public class FileReaderPooledProducer
+        extends AbstractPooledAsyncProducer<FileChunk>
+{
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
 

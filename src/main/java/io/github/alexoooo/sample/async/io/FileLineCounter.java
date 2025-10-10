@@ -5,7 +5,9 @@ import io.github.alexoooo.sample.async.consumer.AbstractAsyncConsumer;
 import java.util.concurrent.ThreadFactory;
 
 
-public class FileLineCounter extends AbstractAsyncConsumer<FileChunk> {
+public class FileLineCounter
+        extends AbstractAsyncConsumer<FileChunk>
+{
     //-----------------------------------------------------------------------------------------------------------------
     private long byteCount;
     private int lineCount;
@@ -33,7 +35,7 @@ public class FileLineCounter extends AbstractAsyncConsumer<FileChunk> {
 
 
     @Override
-    protected void processNext(FileChunk item) throws Exception {
+    protected void processNext(FileChunk item) {
         if (lineCount == 0 && item.length > 0) {
             lineCount = 1;
         }

@@ -2,16 +2,10 @@ package io.github.alexoooo.sample.async.consumer;
 
 
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
-import io.github.alexoooo.sample.async.producer.AsyncResult;
-import org.jspecify.annotations.Nullable;
 
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 
 public abstract class AbstractAsyncConsumer<T>
@@ -38,7 +32,7 @@ public abstract class AbstractAsyncConsumer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public final boolean offer(T item) throws ExecutionException {
+    public final boolean offer(T item) {
         if (closeRequested.get()) {
             throw new IllegalStateException("Close requested");
         }
@@ -55,8 +49,10 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     @Override
-    public final void put(T item) throws ExecutionException {
+    public final void put(T item) {
         while (! closeRequested.get()) {
+            throwExecutionExceptionIfRequired();
+
             if (deque.size() >= queueSize) {
                 synchronized (workMonitor) {
                     try {
@@ -66,7 +62,6 @@ public abstract class AbstractAsyncConsumer<T>
                         throw new RuntimeException(e);
                     }
                 }
-                throwExecutionExceptionIfRequired();
                 continue;
             }
 
@@ -81,7 +76,7 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     @Override
-    protected boolean work() throws Exception {
+    protected final boolean work() throws Exception {
         T item = deque.pollFirst();
         if (item == null) {
             return true;
@@ -98,7 +93,7 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     @Override
-    protected void closeImpl() throws Exception {
+    protected final void closeImpl() throws Exception {
         try {
             while (! deque.isEmpty()) {
                 processNext(deque.removeFirst());

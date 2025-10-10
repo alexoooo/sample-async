@@ -4,7 +4,6 @@ package io.github.alexoooo.sample.async;
 import org.jspecify.annotations.Nullable;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,18 +31,19 @@ public abstract class AbstractAsyncWorker
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    protected void throwExecutionExceptionIfRequired() throws ExecutionException {
+    protected void throwExecutionExceptionIfRequired() {
         Exception exception = firstException.get();
         if (exception == null) {
             return;
         }
-        throw new ExecutionException(exception);
+//        throw new ExecutionException(exception);
+        throw new RuntimeException(exception);
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public final void start() throws ExecutionException {
+    public final void start() {
         boolean unique = startRequested.compareAndSet(false, true);
         if (! unique) {
             throw new IllegalStateException("Start already requested");
@@ -118,7 +118,7 @@ public abstract class AbstractAsyncWorker
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public final void close() throws ExecutionException {
+    public final void close() {
         if (! started) {
             return;
         }
