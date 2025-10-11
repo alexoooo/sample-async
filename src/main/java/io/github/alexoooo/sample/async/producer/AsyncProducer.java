@@ -9,7 +9,11 @@ import java.util.function.Consumer;
 public interface AsyncProducer<T>
         extends AsyncWorker, CloseableIterator<T>
 {
+    int available();
+
+
     AsyncResult<T> poll();
+
 
     /**
      * @return true if more data might be available (the end of stream has not been reached yet)

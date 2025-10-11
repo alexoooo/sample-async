@@ -17,11 +17,13 @@ public abstract class AbstractAsyncWorker
 
     private final AtomicBoolean startRequested = new AtomicBoolean();
     protected volatile boolean started = false;
+    protected volatile boolean workFinished = false;
+    protected final AtomicReference<AsyncState> state = new AtomicReference<>(AsyncState.Created);
     protected final AtomicBoolean closeRequested = new AtomicBoolean();
     protected final CountDownLatch closed = new CountDownLatch(1);
     private final CountDownLatch initiated = new CountDownLatch(1);
     private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
-    protected final AtomicReference<@Nullable Exception> firstException = new AtomicReference<>();
+    protected final AtomicReference<@Nullable Throwable> firstException = new AtomicReference<>();
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -32,11 +34,10 @@ public abstract class AbstractAsyncWorker
 
     //-----------------------------------------------------------------------------------------------------------------
     protected void throwExecutionExceptionIfRequired() {
-        Exception exception = firstException.get();
+        Throwable exception = firstException.get();
         if (exception == null) {
             return;
         }
-//        throw new ExecutionException(exception);
         throw new RuntimeException(exception);
     }
 
@@ -61,24 +62,35 @@ public abstract class AbstractAsyncWorker
         }
 
         throwExecutionExceptionIfRequired();
-        started = true;
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private void run() {
-        initInThread();
-        loopInThread();
+        state.set(AsyncState.Starting);
+        boolean initSuccess = initInThread();
+
+        if (initSuccess) {
+            state.set(AsyncState.Running);
+            loopInThread();
+        }
+
+        state.set(AsyncState.Closing);
         closeInThread();
+
+        state.set(AsyncState.Terminal);
     }
 
 
-    private void initInThread() {
+    private boolean initInThread() {
         try {
             init();
+            started = true;
+            return true;
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             firstException.compareAndSet(null, e);
+            return false;
         }
         finally {
             initiated.countDown();
@@ -97,7 +109,7 @@ public abstract class AbstractAsyncWorker
                 }
             }
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             firstException.compareAndSet(null, e);
         }
     }
@@ -107,7 +119,7 @@ public abstract class AbstractAsyncWorker
         try {
             closeImpl();
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             firstException.compareAndSet(null, e);
         }
         finally {
@@ -118,34 +130,79 @@ public abstract class AbstractAsyncWorker
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
+    public final boolean closeAsync() {
+        if (! started) {
+            return false;
+        }
+
+        return closeRequested.compareAndSet(false, true);
+    }
+
+
+    @Override
     public final void close() {
         if (! started) {
             return;
         }
 
-        boolean unique = closeRequested.compareAndSet(false, true);
-        if (! unique) {
-            return;
-        }
+        closeAsync();
 
         Thread thread = threadHolder.getAndSet(null);
-        if (thread == null) {
-            throw new IllegalStateException();
-        }
 
         try {
             closed.await();
-            thread.join();
+            if (thread != null) {
+                thread.join();
+            }
         }
         catch (InterruptedException e) {
             throw new IllegalStateException(e);
         }
 
-//        synchronized (hasNextMonitor) {
-//            hasNextMonitor.notify();
-//        }
-
         throwExecutionExceptionIfRequired();
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Override
+    public final AsyncState state() {
+        return state.get();
+    }
+
+//    @Override
+//    public final boolean startRequested() {
+//        return startRequested.get();
+//    }
+//
+//    @Override
+//    public final boolean started() {
+//        return started;
+//    }
+//
+//    @Override
+//    public final boolean running() {
+//        return running;
+//    }
+//
+//    @Override
+//    public final boolean closeRequested() {
+//        return closeRequested.get();
+//    }
+//
+//    @Override
+//    public final boolean closed() {
+//        return closed.getCount() == 0;
+//    }
+
+    @Override
+    public final boolean workFinished() {
+//        throwExecutionExceptionIfRequired();
+        return workFinished;
+    }
+
+    @Override
+    public final @Nullable Throwable failure() {
+        return firstException.get();
     }
 
 

@@ -42,9 +42,8 @@ public abstract class AbstractAsyncProducer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSize;
-
-    private final AtomicBoolean endReached = new AtomicBoolean();;
-    private final Deque<T> deque = new ConcurrentLinkedDeque<>();
+    private final Deque<T> queue = new ConcurrentLinkedDeque<>();
+    private final AtomicBoolean endReached = new AtomicBoolean();
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
 
@@ -59,6 +58,13 @@ public abstract class AbstractAsyncProducer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Override
+    public final int available() {
+        throwExecutionExceptionIfRequired();
+        return queue.size();
+    }
+
+
     @Override
     public final AsyncResult<T> poll() {
         return poll(false);
@@ -77,14 +83,14 @@ public abstract class AbstractAsyncProducer<T>
             throw new IllegalStateException("Iteration in progress");
         }
 
-        if (deque.isEmpty()) {
+        if (queue.isEmpty()) {
             if (closed.getCount() == 0) {
                 return AsyncResult.endReachedWithoutValue();
             }
             return AsyncResult.notReady();
         }
 
-        T next = deque.pollFirst();
+        T next = queue.pollFirst();
         if (next != null) {
             synchronized (eventLoopMonitor) {
                 eventLoopMonitor.notify();
@@ -107,12 +113,12 @@ public abstract class AbstractAsyncProducer<T>
             throw new IllegalStateException("Iteration in progress");
         }
 
-        if (deque.isEmpty()) {
+        if (queue.isEmpty()) {
             return closed.getCount() != 0;
         }
 
         while (true) {
-            T next = deque.pollFirst();
+            T next = queue.pollFirst();
             if (next == null) {
                 break;
             }
@@ -129,7 +135,7 @@ public abstract class AbstractAsyncProducer<T>
     //-----------------------------------------------------------------------------------------------------------------
     @Override
     protected boolean work() {
-        if (deque.size() >= queueSize) {
+        if (queue.size() >= queueSize) {
             sleepForPolling(eventLoopMonitor);
             return true;
         }
@@ -144,7 +150,7 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         if (nextOrNull != null) {
-            deque.addLast(nextOrNull);
+            queue.addLast(nextOrNull);
             synchronized (hasNextMonitor) {
                 hasNextMonitor.notify();
             }
