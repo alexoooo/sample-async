@@ -3,8 +3,8 @@ package io.github.alexoooo.sample.async.consumer;
 
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 
-import java.util.Deque;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
 
 
@@ -17,20 +17,27 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    protected final int queueSize;
+    protected final int queueSizeLimit;
 
-    private final Deque<T> deque = new ConcurrentLinkedDeque<>();
+    private final BlockingQueue<T> queue;
     private final Object workMonitor = new Object();
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public AbstractAsyncConsumer(int queueSize, ThreadFactory threadFactory) {
+    public AbstractAsyncConsumer(int queueSizeLimit, ThreadFactory threadFactory) {
         super(threadFactory);
-        this.queueSize = queueSize;
+        queue = new ArrayBlockingQueue<>(queueSizeLimit);
+        this.queueSizeLimit = queueSizeLimit;
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Override
+    public final int pending() {
+        return queue.size();
+    }
+
+
     @Override
     public final boolean offer(T item) {
         if (closeRequested.get()) {
@@ -39,12 +46,7 @@ public abstract class AbstractAsyncConsumer<T>
 
         throwExecutionExceptionIfRequired();
 
-        if (deque.size() >= queueSize) {
-            return false;
-        }
-
-        deque.addLast(item);
-        return true;
+        return queue.offer(item);
     }
 
 
@@ -53,20 +55,19 @@ public abstract class AbstractAsyncConsumer<T>
         while (! closeRequested.get()) {
             throwExecutionExceptionIfRequired();
 
-            if (deque.size() >= queueSize) {
-                synchronized (workMonitor) {
-                    try {
-                        workMonitor.wait(queueFullSleepMillis);
-                    }
-                    catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-                continue;
+            boolean added = queue.offer(item);
+            if (added) {
+                return;
             }
 
-            deque.addLast(item);
-            return;
+            synchronized (workMonitor) {
+                try {
+                    workMonitor.wait(queueFullSleepMillis);
+                }
+                catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
 
         if (closeRequested.get()) {
@@ -77,7 +78,7 @@ public abstract class AbstractAsyncConsumer<T>
 
     @Override
     protected final boolean work() throws Exception {
-        T item = deque.pollFirst();
+        T item = queue.poll();
         if (item == null) {
             return true;
         }
@@ -95,8 +96,14 @@ public abstract class AbstractAsyncConsumer<T>
     @Override
     protected final void closeImpl() throws Exception {
         try {
-            while (! deque.isEmpty()) {
-                processNext(deque.removeFirst());
+            if (firstException.get() == null) {
+                while (true) {
+                    T item = queue.poll();
+                    if (item == null) {
+                        break;
+                    }
+                    processNext(item);
+                }
             }
         }
         finally {

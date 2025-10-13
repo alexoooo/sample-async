@@ -11,18 +11,21 @@ public interface AsyncProducer<T>
 {
     /**
      * @return how many results are ready to be polled, can be stale due to race condition
+     * @throws RuntimeException to report asynchronous background failure
      */
-    int available();
+    int available() throws RuntimeException;
 
 
     /**
      * @return try to read next available value, which might be the last one (or more might potentially be available)
+     * @throws RuntimeException to report asynchronous background failure
      */
-    AsyncResult<T> poll();
+    AsyncResult<T> poll() throws RuntimeException;
 
 
     /**
      * @return true if more data might be available (the end of stream has not been reached yet)
+     * @throws RuntimeException to report asynchronous background failure
      */
-    boolean poll(Consumer<T> consumer);
+    boolean poll(Consumer<T> consumer) throws RuntimeException;
 }

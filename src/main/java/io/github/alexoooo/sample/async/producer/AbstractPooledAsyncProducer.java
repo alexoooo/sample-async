@@ -33,7 +33,7 @@ public abstract class AbstractPooledAsyncProducer<T>
     protected final void init() throws Exception {
         doInit();
 
-        for (int i = 0; i < queueSize; i++) {
+        for (int i = 0; i < queueSizeLimit; i++) {
             T item = Objects.requireNonNull(creator.get());
             pool.add(item);
         }
@@ -48,7 +48,7 @@ public abstract class AbstractPooledAsyncProducer<T>
     public void release(T value) {
         boolean added = pool.add(value);
         if (! added) {
-            throw new IllegalStateException("No space (" + queueSize + "): " + value);
+            throw new IllegalStateException("No space (" + queueSizeLimit + "): " + value);
         }
     }
 

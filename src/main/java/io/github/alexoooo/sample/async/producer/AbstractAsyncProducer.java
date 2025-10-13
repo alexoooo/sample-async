@@ -4,8 +4,8 @@ package io.github.alexoooo.sample.async.producer;
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Deque;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,8 +41,8 @@ public abstract class AbstractAsyncProducer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    protected final int queueSize;
-    private final Deque<T> queue = new ConcurrentLinkedDeque<>();
+    protected final int queueSizeLimit;
+    private final BlockingQueue<T> queue;
     private final AtomicBoolean endReached = new AtomicBoolean();
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
@@ -51,9 +51,14 @@ public abstract class AbstractAsyncProducer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public AbstractAsyncProducer(int queueSize, ThreadFactory threadFactory) {
+    /**
+     * @param queueSizeLimit maximum queue size
+     * @param threadFactory used to create worker thread
+     */
+    public AbstractAsyncProducer(int queueSizeLimit, ThreadFactory threadFactory) {
         super(threadFactory);
-        this.queueSize = queueSize;
+        queue = new ArrayBlockingQueue<>(queueSizeLimit);
+        this.queueSizeLimit = queueSizeLimit;
     }
 
 
@@ -71,35 +76,28 @@ public abstract class AbstractAsyncProducer<T>
     }
 
 
-    @SuppressWarnings("ConstantValue")
     private AsyncResult<T> poll(boolean forIterator) {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
-
         throwExecutionExceptionIfRequired();
-
         if (! forIterator && ! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
             throw new IllegalStateException("Iteration in progress");
         }
 
-        if (queue.isEmpty()) {
+        T next = queue.poll();
+
+        if (next == null) {
             if (closed.getCount() == 0) {
                 return AsyncResult.endReachedWithoutValue();
             }
             return AsyncResult.notReady();
         }
 
-        T next = queue.pollFirst();
-        if (next != null) {
-            synchronized (eventLoopMonitor) {
-                eventLoopMonitor.notify();
-            }
-            return AsyncResult.of(next);
+        synchronized (eventLoopMonitor) {
+            eventLoopMonitor.notify();
         }
-        else {
-            return AsyncResult.notReady();
-        }
+        return AsyncResult.of(next);
     }
 
 
@@ -113,16 +111,18 @@ public abstract class AbstractAsyncProducer<T>
             throw new IllegalStateException("Iteration in progress");
         }
 
-        if (queue.isEmpty()) {
-            return closed.getCount() != 0;
-        }
-
+        boolean empty = true;
         while (true) {
-            T next = queue.pollFirst();
+            T next = queue.poll();
             if (next == null) {
                 break;
             }
             consumer.accept(next);
+            empty = false;
+        }
+
+        if (empty) {
+            return closed.getCount() != 0;
         }
 
         synchronized (eventLoopMonitor) {
@@ -135,7 +135,7 @@ public abstract class AbstractAsyncProducer<T>
     //-----------------------------------------------------------------------------------------------------------------
     @Override
     protected boolean work() {
-        if (queue.size() >= queueSize) {
+        if (queue.size() >= queueSizeLimit) {
             sleepForPolling(eventLoopMonitor);
             return true;
         }
@@ -150,7 +150,10 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         if (nextOrNull != null) {
-            queue.addLast(nextOrNull);
+            boolean added = queue.offer(nextOrNull);
+            if (! added) {
+                throw new IllegalStateException("Unable to add");
+            }
             synchronized (hasNextMonitor) {
                 hasNextMonitor.notify();
             }
