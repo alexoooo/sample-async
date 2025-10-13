@@ -170,34 +170,8 @@ public abstract class AbstractAsyncWorker
         return state.get();
     }
 
-//    @Override
-//    public final boolean startRequested() {
-//        return startRequested.get();
-//    }
-//
-//    @Override
-//    public final boolean started() {
-//        return started;
-//    }
-//
-//    @Override
-//    public final boolean running() {
-//        return running;
-//    }
-//
-//    @Override
-//    public final boolean closeRequested() {
-//        return closeRequested.get();
-//    }
-//
-//    @Override
-//    public final boolean closed() {
-//        return closed.getCount() == 0;
-//    }
-
     @Override
     public final boolean workFinished() {
-//        throwExecutionExceptionIfRequired();
         return workFinished;
     }
 
