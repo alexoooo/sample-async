@@ -105,6 +105,7 @@ public abstract class AbstractAsyncWorker
             ) {
                 boolean hasMoreWork = work();
                 if (! hasMoreWork) {
+                    workFinished = true;
                     break;
                 }
             }
