@@ -36,6 +36,8 @@ public interface AsyncWorker
 
     //-----------------------------------------------------------------------------------------------------------------
     /**
+     * Asynchronous processing state, note that it doesn't reflect the state of business logic
+     *      (e.g. background thread can be Terminal, but AsyncProducer can still have available).
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      * Results could be stale due to race condition, except Terminal which is permanent.
      * @return processing stage, could be stale due to race condition.
