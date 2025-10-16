@@ -1,6 +1,7 @@
 package io.github.alexoooo.sample.async.producer;
 
 
+import io.github.alexoooo.sample.async.AsyncState;
 import io.github.alexoooo.sample.async.AsyncWorker;
 
 import java.util.function.Consumer;
@@ -14,6 +15,15 @@ public interface AsyncProducer<T>
      * @throws RuntimeException to report asynchronous background failure
      */
     int available() throws RuntimeException;
+
+
+    /**
+     * @return true if failed, or if finished and successfully and all available results have been consumed
+     */
+    default boolean isDone() {
+        return failure() != null ||
+                state() == AsyncState.Terminal && available() == 0;
+    }
 
 
     /**
