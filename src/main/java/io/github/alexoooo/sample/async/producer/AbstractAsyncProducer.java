@@ -88,7 +88,7 @@ public abstract class AbstractAsyncProducer<T>
         T next = queue.poll();
 
         if (next == null) {
-            if (closed.getCount() == 0) {
+            if (closed()) {
                 return AsyncResult.endReachedWithoutValue();
             }
             return AsyncResult.notReady();
@@ -122,7 +122,7 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         if (empty) {
-            return closed.getCount() != 0;
+            return ! closed();
         }
 
         synchronized (eventLoopMonitor) {
@@ -134,7 +134,7 @@ public abstract class AbstractAsyncProducer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    protected boolean work() {
+    protected final boolean work() {
         if (queue.size() >= queueSizeLimit) {
             sleepForPolling(eventLoopMonitor);
             return true;
@@ -144,8 +144,8 @@ public abstract class AbstractAsyncProducer<T>
         try {
             nextOrNull = tryComputeNext();
         }
-        catch (Exception e) {
-            firstException.compareAndSet(null, e);
+        catch (Throwable e) {
+            offerFirstException(e);
             return false;
         }
 
@@ -178,7 +178,7 @@ public abstract class AbstractAsyncProducer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public boolean hasNext() {
+    public final boolean hasNext() {
         IteratorNext<T> current = iteratorNext.get();
         if (current.checked) {
             return current.next != null;
@@ -208,7 +208,7 @@ public abstract class AbstractAsyncProducer<T>
 
 
     @Override
-    public T next() {
+    public final T next() {
         if (! hasNext()) {
             throw new IllegalStateException("Next not available");
         }
@@ -229,6 +229,7 @@ public abstract class AbstractAsyncProducer<T>
         }
         return null;
     }
+
 
     abstract protected @Nullable T tryComputeNext() throws Exception;
 }

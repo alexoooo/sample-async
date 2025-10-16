@@ -34,11 +34,28 @@ public abstract class AbstractAsyncWorker
 
     //-----------------------------------------------------------------------------------------------------------------
     protected void throwExecutionExceptionIfRequired() {
-        Throwable exception = firstException.get();
+        Throwable exception = failure();
         if (exception == null) {
             return;
         }
         throw new RuntimeException(exception);
+    }
+
+    protected void offerFirstException(Throwable exception) {
+        firstException.compareAndSet(null, exception);
+    }
+
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    protected boolean failed() {
+        return failure() != null;
+    }
+
+    protected boolean closeRequested() {
+        return closeRequested.get();
+    }
+
+    protected boolean closed() {
+        return closed.getCount() == 0;
     }
 
 
@@ -89,7 +106,7 @@ public abstract class AbstractAsyncWorker
             return true;
         }
         catch (Throwable e) {
-            firstException.compareAndSet(null, e);
+            offerFirstException(e);
             return false;
         }
         finally {
@@ -100,9 +117,7 @@ public abstract class AbstractAsyncWorker
 
     private void loopInThread() {
         try {
-            while (! closeRequested.get() &&
-                    firstException.get() == null
-            ) {
+            while (! closeRequested() && ! failed()) {
                 boolean hasMoreWork = work();
                 if (! hasMoreWork) {
                     workFinished = true;
@@ -111,7 +126,7 @@ public abstract class AbstractAsyncWorker
             }
         }
         catch (Throwable e) {
-            firstException.compareAndSet(null, e);
+            offerFirstException(e);
         }
     }
 
@@ -121,7 +136,7 @@ public abstract class AbstractAsyncWorker
             closeImpl();
         }
         catch (Throwable e) {
-            firstException.compareAndSet(null, e);
+            offerFirstException(e);
         }
         finally {
             closed.countDown();

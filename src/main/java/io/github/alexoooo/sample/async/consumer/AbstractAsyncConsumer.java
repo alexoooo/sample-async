@@ -40,7 +40,7 @@ public abstract class AbstractAsyncConsumer<T>
 
     @Override
     public final boolean offer(T item) {
-        if (closeRequested.get()) {
+        if (closeRequested()) {
             throw new IllegalStateException("Close requested");
         }
 
@@ -52,7 +52,7 @@ public abstract class AbstractAsyncConsumer<T>
 
     @Override
     public final void put(T item) {
-        while (! closeRequested.get()) {
+        while (! closeRequested()) {
             throwExecutionExceptionIfRequired();
 
             boolean added = queue.offer(item);
@@ -70,7 +70,7 @@ public abstract class AbstractAsyncConsumer<T>
             }
         }
 
-        if (closeRequested.get()) {
+        if (closeRequested()) {
             throw new IllegalStateException("Close requested");
         }
     }
@@ -96,7 +96,7 @@ public abstract class AbstractAsyncConsumer<T>
     @Override
     protected final void closeImpl() throws Exception {
         try {
-            if (firstException.get() == null) {
+            if (! failed()) {
                 while (true) {
                     T item = queue.poll();
                     if (item == null) {
