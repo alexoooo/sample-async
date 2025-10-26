@@ -104,7 +104,7 @@ public abstract class AbstractAsyncConsumer<T>
     @Override
     protected final boolean work() throws Exception {
         if (pending != null) {
-            boolean processed = tryProcessNext(pending);
+            boolean processed = tryProcessNext(pending, false);
             if (processed) {
                 pending = null;
             }
@@ -117,7 +117,7 @@ public abstract class AbstractAsyncConsumer<T>
             if (next == null) {
                 return true;
             }
-            boolean processed = tryProcessNext(next);
+            boolean processed = tryProcessNext(next, true);
             if (! processed) {
                 pending = next;
                 return true;
@@ -133,12 +133,17 @@ public abstract class AbstractAsyncConsumer<T>
     protected final void closeImpl() throws Exception {
         try {
             if (! failed()) {
+                if (pending != null) {
+                    processNext(pending, true);
+                    pending = null;
+                }
+
                 while (true) {
                     T item = queue.poll();
                     if (item == null) {
                         break;
                     }
-                    processNext(item);
+                    processNext(item, false);
                 }
             }
         }
@@ -147,12 +152,14 @@ public abstract class AbstractAsyncConsumer<T>
         }
     }
 
-    private void processNext(T item) throws Exception {
+    private void processNext(T item, boolean pending) throws Exception {
+        boolean initialAttempt = ! pending;
         while (true) {
-            boolean processed = tryProcessNext(item);
+            boolean processed = tryProcessNext(item, initialAttempt);
             if (processed) {
                 break;
             }
+            initialAttempt = false;
             awaitItemProcessedOrTimeout();
         }
     }
@@ -162,7 +169,7 @@ public abstract class AbstractAsyncConsumer<T>
     /**
      * @return true if the item was consumed, otherwise the same item will be repeatedly re-submitted for processing
      */
-    abstract protected boolean tryProcessNext(T item) throws Exception;
+    abstract protected boolean tryProcessNext(T item, boolean initialAttempt) throws Exception;
 
     abstract protected void doClose() throws Exception;
 }

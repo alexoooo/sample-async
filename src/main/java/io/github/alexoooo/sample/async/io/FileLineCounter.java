@@ -38,7 +38,7 @@ public class FileLineCounter
 
 
     @Override
-    protected boolean tryProcessNext(FileChunk item) {
+    protected boolean tryProcessNext(FileChunk item, boolean initialAttempt) {
         if (lineCount.get() == 0 && item.length > 0) {
             lineCount.set(1);
         }
