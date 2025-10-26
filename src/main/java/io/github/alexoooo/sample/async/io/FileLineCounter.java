@@ -3,14 +3,17 @@ package io.github.alexoooo.sample.async.io;
 import io.github.alexoooo.sample.async.consumer.AbstractAsyncConsumer;
 
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 public class FileLineCounter
         extends AbstractAsyncConsumer<FileChunk>
 {
     //-----------------------------------------------------------------------------------------------------------------
-    private long byteCount;
-    private int lineCount;
+    // NB: atomic because they are externally exposed via byteCount()/lineCount() methods
+    private final AtomicLong byteCount = new AtomicLong();
+    private final AtomicInteger lineCount = new AtomicInteger();
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -21,11 +24,11 @@ public class FileLineCounter
 
     //-----------------------------------------------------------------------------------------------------------------
     public long byteCount() {
-        return byteCount;
+        return byteCount.get();
     }
 
     public int lineCount() {
-        return lineCount;
+        return lineCount.get();
     }
 
 
@@ -35,17 +38,19 @@ public class FileLineCounter
 
 
     @Override
-    protected void processNext(FileChunk item) {
-        if (lineCount == 0 && item.length > 0) {
-            lineCount = 1;
+    protected boolean tryProcessNext(FileChunk item) {
+        if (lineCount.get() == 0 && item.length > 0) {
+            lineCount.set(1);
         }
 
-        byteCount += item.length;
+        byteCount.addAndGet(item.length);
         for (int i = 0; i < item.length; i++) {
             if (item.bytes[i] == '\n') {
-                lineCount++;
+                lineCount.incrementAndGet();
             }
         }
+
+        return true;
     }
 
     @Override

@@ -2,6 +2,7 @@ package io.github.alexoooo.sample.async.consumer;
 
 
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
+import org.jspecify.annotations.Nullable;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -19,6 +20,7 @@ public abstract class AbstractAsyncConsumer<T>
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSizeLimit;
 
+    private @Nullable T pending;
     private final BlockingQueue<T> queue;
     private final Object workMonitor = new Object();
 
@@ -32,6 +34,31 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    private void awaitItemProcessedOrTimeout() {
+        synchronized (workMonitor) {
+            try {
+                workMonitor.wait(queueFullSleepMillis);
+            }
+            catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    protected final void notifyItemProcessed() {
+        synchronized (workMonitor) {
+            workMonitor.notify();
+        }
+    }
+
+    private void checkNotClosedOrFailed() {
+        if (closeRequested()) {
+            throw new IllegalStateException("Close requested");
+        }
+        throwExecutionExceptionIfRequired();
+    }
+
+
     @Override
     public final int pending() {
         return queue.size();
@@ -39,13 +66,18 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     @Override
-    public final boolean offer(T item) {
-        if (closeRequested()) {
-            throw new IllegalStateException("Close requested");
+    public void awaitZeroPending() throws RuntimeException {
+        checkNotClosedOrFailed();
+        while (pending() > 0) {
+            awaitItemProcessedOrTimeout();
+            checkNotClosedOrFailed();
         }
+    }
 
-        throwExecutionExceptionIfRequired();
 
+    @Override
+    public final boolean offer(T item) {
+        checkNotClosedOrFailed();
         return queue.offer(item);
     }
 
@@ -60,14 +92,7 @@ public abstract class AbstractAsyncConsumer<T>
                 return;
             }
 
-            synchronized (workMonitor) {
-                try {
-                    workMonitor.wait(queueFullSleepMillis);
-                }
-                catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+            awaitItemProcessedOrTimeout();
         }
 
         if (closeRequested()) {
@@ -78,17 +103,28 @@ public abstract class AbstractAsyncConsumer<T>
 
     @Override
     protected final boolean work() throws Exception {
-        T item = queue.poll();
-        if (item == null) {
-            return true;
+        if (pending != null) {
+            boolean processed = tryProcessNext(pending);
+            if (processed) {
+                pending = null;
+            }
+            else {
+                return true;
+            }
+        }
+        else {
+            T next = queue.poll();
+            if (next == null) {
+                return true;
+            }
+            boolean processed = tryProcessNext(next);
+            if (! processed) {
+                pending = next;
+                return true;
+            }
         }
 
-        processNext(item);
-
-        synchronized (workMonitor) {
-            workMonitor.notify();
-        }
-
+        notifyItemProcessed();
         return true;
     }
 
@@ -111,9 +147,22 @@ public abstract class AbstractAsyncConsumer<T>
         }
     }
 
+    private void processNext(T item) throws Exception {
+        while (true) {
+            boolean processed = tryProcessNext(item);
+            if (processed) {
+                break;
+            }
+            awaitItemProcessedOrTimeout();
+        }
+    }
+
 
     //-----------------------------------------------------------------------------------------------------------------
-    abstract protected void processNext(T item) throws Exception;
+    /**
+     * @return true if the item was consumed, otherwise the same item will be repeatedly re-submitted for processing
+     */
+    abstract protected boolean tryProcessNext(T item) throws Exception;
 
     abstract protected void doClose() throws Exception;
 }

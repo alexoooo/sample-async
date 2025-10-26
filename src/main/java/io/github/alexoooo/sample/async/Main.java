@@ -15,6 +15,7 @@ import java.nio.file.Path;
 public class Main {
     //-----------------------------------------------------------------------------------------------------------------
     static void main(String[] args) throws Exception {
+//        Path path = Path.of("C:/~/data/measurements-100000.txt");
 //        Path path = Path.of("C:/~/data/measurements-10000000.txt");
         Path path = Path.of("C:/~/data/measurements-1000000000.txt");
 
@@ -42,13 +43,8 @@ public class Main {
             counter.start();
 
             while (true) {
-                AsyncResult<FileChunk> result = reader.poll();
-
-                if (result.value() != null) {
-                    counter.put(result.value());
-                }
-
-                if (result.endReached()) {
+                boolean hasNext = reader.poll(counter::put);
+                if (! hasNext) {
                     break;
                 }
             }
