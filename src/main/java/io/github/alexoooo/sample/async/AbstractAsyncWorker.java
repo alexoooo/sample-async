@@ -7,13 +7,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 
 public abstract class AbstractAsyncWorker
         implements AsyncWorker
 {
     //-----------------------------------------------------------------------------------------------------------------
-    public static final int sleepMillis = 25;
+    public static final int sleepForPollingMillis = 1;
+    public static final int sleepForBackoffNanos = 100_000;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -205,7 +207,7 @@ public abstract class AbstractAsyncWorker
     protected final void sleepForPolling(Object monitor) {
         try {
             synchronized (monitor) {
-                monitor.wait(sleepMillis);
+                monitor.wait(sleepForPollingMillis);
             }
         }
         catch (InterruptedException e) {
@@ -214,12 +216,7 @@ public abstract class AbstractAsyncWorker
     }
 
     protected final void sleepForBackoff() {
-        try {
-            Thread.sleep(sleepMillis);
-        }
-        catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        LockSupport.parkNanos(sleepForBackoffNanos);
     }
 
 

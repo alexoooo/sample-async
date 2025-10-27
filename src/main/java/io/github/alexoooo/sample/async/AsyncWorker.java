@@ -18,12 +18,14 @@ public interface AsyncWorker
      */
     void start();
 
+
     /**
      * Idempotent (can be called multiple times).
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      * @return true if closing was newly requested
      */
     boolean closeAsync();
+
 
     /**
      * Attempts to close even if previously failed.
@@ -44,12 +46,14 @@ public interface AsyncWorker
      */
     AsyncState state();
 
+
     /**
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      * Results could be stale due to race condition (e.g. work finished right after returning false).
      * @return true if all work was successfully completed (without exception/closing).
      */
     boolean workFinished();
+
 
     /**
      * Doesn't throw anything, even if an exception was previously thrown in the background.

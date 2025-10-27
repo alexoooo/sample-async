@@ -80,17 +80,20 @@ public abstract class AbstractAsyncConsumer<T>
                 pending = null;
             }
             else {
+                sleepForBackoff();
                 return true;
             }
         }
         else {
             T next = queue.poll();
             if (next == null) {
+                sleepForBackoff();
                 return true;
             }
             boolean processed = tryProcessNext(next, true);
             if (! processed) {
                 pending = next;
+                sleepForBackoff();
                 return true;
             }
         }

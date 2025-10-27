@@ -16,10 +16,12 @@ public interface AsyncConsumer<T>
      */
     int pending() throws RuntimeException;
 
+
     /**
      * @throws RuntimeException to report asynchronous background failure, or close request while waiting
      */
     void awaitZeroPending() throws RuntimeException;
+
 
     /**
      * @param item attempt to add to processing queue
