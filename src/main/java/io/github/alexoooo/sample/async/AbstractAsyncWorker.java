@@ -13,6 +13,10 @@ public abstract class AbstractAsyncWorker
         implements AsyncWorker
 {
     //-----------------------------------------------------------------------------------------------------------------
+    public static final int sleepMillis = 25;
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private final ThreadFactory threadFactory;
 
     private final AtomicBoolean startRequested = new AtomicBoolean();
@@ -193,6 +197,29 @@ public abstract class AbstractAsyncWorker
     @Override
     public final @Nullable Throwable failure() {
         return firstException.get();
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+    protected final void sleepForPolling(Object monitor) {
+        try {
+            synchronized (monitor) {
+                monitor.wait(sleepMillis);
+            }
+        }
+        catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    protected final void sleepForBackoff() {
+        try {
+            Thread.sleep(sleepMillis);
+        }
+        catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 

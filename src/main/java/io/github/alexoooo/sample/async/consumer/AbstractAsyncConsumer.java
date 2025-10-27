@@ -14,10 +14,6 @@ public abstract class AbstractAsyncConsumer<T>
         implements AsyncConsumer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
-    private static final int queueFullSleepMillis = 25;
-
-
-    //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSizeLimit;
 
     private @Nullable T pending;
@@ -34,31 +30,6 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private void awaitItemProcessedOrTimeout() {
-        synchronized (workMonitor) {
-            try {
-                workMonitor.wait(queueFullSleepMillis);
-            }
-            catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    protected final void notifyItemProcessed() {
-        synchronized (workMonitor) {
-            workMonitor.notify();
-        }
-    }
-
-    private void checkNotClosedOrFailed() {
-        if (closeRequested()) {
-            throw new IllegalStateException("Close requested");
-        }
-        throwExecutionExceptionIfRequired();
-    }
-
-
     @Override
     public final int pending() {
         return queue.size();
@@ -69,7 +40,7 @@ public abstract class AbstractAsyncConsumer<T>
     public void awaitZeroPending() throws RuntimeException {
         checkNotClosedOrFailed();
         while (pending() > 0) {
-            awaitItemProcessedOrTimeout();
+            sleepForPolling(workMonitor);
             checkNotClosedOrFailed();
         }
     }
@@ -92,7 +63,7 @@ public abstract class AbstractAsyncConsumer<T>
                 return;
             }
 
-            awaitItemProcessedOrTimeout();
+            sleepForPolling(workMonitor);
         }
 
         if (closeRequested()) {
@@ -160,13 +131,29 @@ public abstract class AbstractAsyncConsumer<T>
                 break;
             }
             initialAttempt = false;
-            awaitItemProcessedOrTimeout();
+            sleepForBackoff();
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    protected final void notifyItemProcessed() {
+        synchronized (workMonitor) {
+            workMonitor.notify();
+        }
+    }
+
+    private void checkNotClosedOrFailed() {
+        if (closeRequested()) {
+            throw new IllegalStateException("Close requested");
+        }
+        throwExecutionExceptionIfRequired();
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     /**
+     * if item is not consumed, then the thread will sleep for a bit to avoid pinning
      * @return true if the item was consumed, otherwise the same item will be repeatedly re-submitted for processing
      */
     abstract protected boolean tryProcessNext(T item, boolean initialAttempt) throws Exception;

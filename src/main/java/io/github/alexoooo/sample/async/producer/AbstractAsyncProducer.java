@@ -17,9 +17,6 @@ public abstract class AbstractAsyncProducer<T>
         implements AsyncProducer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
-    private static final int queueFullSleepMillis = 25;
-
-
     private record IteratorNext<T>(
             @Nullable T next,
             boolean checked
@@ -158,21 +155,11 @@ public abstract class AbstractAsyncProducer<T>
                 hasNextMonitor.notify();
             }
         }
+        else {
+            sleepForBackoff();
+        }
 
         return ! endReached.get();
-    }
-
-
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    private void sleepForPolling(Object monitor) {
-        try {
-            synchronized (monitor) {
-                monitor.wait(queueFullSleepMillis);
-            }
-        }
-        catch (InterruptedException e) {
-            throw new IllegalStateException(e);
-        }
     }
 
 
@@ -222,6 +209,11 @@ public abstract class AbstractAsyncProducer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    /**
+     * use to indicate end of data inside tryCompute,
+     *  can be returned or called separately before the return in tryComputeNext
+     * @return dummy value (null)
+     */
     protected @Nullable T endReached() {
         boolean unique = endReached.compareAndSet(false, true);
         if (! unique) {
@@ -230,6 +222,9 @@ public abstract class AbstractAsyncProducer<T>
         return null;
     }
 
-
+    /**
+     * if item is not computed (null return), then the thread will sleep for a bit to avoid pinning
+     * @return computed item, or null if not ready (call endReached() to indicate end of data)
+     */
     abstract protected @Nullable T tryComputeNext() throws Exception;
 }
