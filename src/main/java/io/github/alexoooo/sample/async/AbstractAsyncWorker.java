@@ -14,8 +14,8 @@ public abstract class AbstractAsyncWorker
         implements AsyncWorker
 {
     //-----------------------------------------------------------------------------------------------------------------
-    public static final int sleepForPollingMillis = 1;
-    public static final int sleepForBackoffNanos = 100_000;
+    private static final int sleepForPollingMillis = 1;
+    private static final int sleepForBackoffNanos = 100_000;
 
 
     //-----------------------------------------------------------------------------------------------------------------
