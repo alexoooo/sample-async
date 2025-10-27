@@ -27,6 +27,13 @@ public interface AsyncProducer<T>
 
 
     /**
+     * @return retrieve but do not remove already available value, next call to poll will produce exactly this (if available)
+     * @throws RuntimeException to report asynchronous background failure
+     */
+    AsyncResult<T> peek() throws RuntimeException;
+
+
+    /**
      * @return try to read next available value, which might be the last one (or more might potentially be available)
      * @throws RuntimeException to report asynchronous background failure
      */

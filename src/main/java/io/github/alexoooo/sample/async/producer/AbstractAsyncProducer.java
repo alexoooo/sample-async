@@ -90,7 +90,6 @@ public abstract class AbstractAsyncProducer<T>
             }
             return AsyncResult.notReady();
         }
-
         synchronized (eventLoopMonitor) {
             eventLoopMonitor.notify();
         }
@@ -121,11 +120,32 @@ public abstract class AbstractAsyncProducer<T>
         if (empty) {
             return ! closed();
         }
-
         synchronized (eventLoopMonitor) {
             eventLoopMonitor.notify();
         }
         return true;
+    }
+
+
+    @Override
+    public AsyncResult<T> peek() throws RuntimeException {
+        if (! started) {
+            throw new IllegalStateException("Not started");
+        }
+        throwExecutionExceptionIfRequired();
+        if (! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+            throw new IllegalStateException("Iteration in progress");
+        }
+
+        T next = queue.peek();
+
+        if (next == null) {
+            if (closed()) {
+                return AsyncResult.endReachedWithoutValue();
+            }
+            return AsyncResult.notReady();
+        }
+        return AsyncResult.of(next);
     }
 
 
@@ -214,6 +234,7 @@ public abstract class AbstractAsyncProducer<T>
      *  can be returned or called separately before the return in tryComputeNext
      * @return dummy value (null)
      */
+    @SuppressWarnings("UnusedReturnValue")
     protected @Nullable T endReached() {
         boolean unique = endReached.compareAndSet(false, true);
         if (! unique) {
