@@ -49,7 +49,7 @@ public class FileReaderPooledProducer
 
 
     @Override
-    protected boolean tryComputeNext(FileChunk chunk) throws Exception {
+    protected boolean tryComputeNext(FileChunk chunk, boolean initialAttempt) throws Exception {
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {
             endReached();

@@ -30,6 +30,7 @@ public abstract class AbstractAsyncWorker
     private final CountDownLatch initiated = new CountDownLatch(1);
     private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
     protected final AtomicReference<@Nullable Throwable> firstException = new AtomicReference<>();
+    private final AtomicReference<Boolean> skipBackoff = new AtomicReference<>(false);
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -215,8 +216,19 @@ public abstract class AbstractAsyncWorker
         }
     }
 
+
     protected final void sleepForBackoff() {
+        boolean changed = skipBackoff.compareAndSet(true, false);
+        if (changed) {
+            return;
+        }
         LockSupport.parkNanos(sleepForBackoffNanos);
+    }
+
+
+    @SuppressWarnings("unused")
+    protected final void skipBackoff() {
+        skipBackoff.set(true);
     }
 
 

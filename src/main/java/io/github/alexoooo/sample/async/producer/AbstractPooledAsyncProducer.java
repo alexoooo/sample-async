@@ -7,7 +7,6 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadFactory;
-import java.util.function.Supplier;
 
 
 public abstract class AbstractPooledAsyncProducer<T>
@@ -16,7 +15,7 @@ public abstract class AbstractPooledAsyncProducer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
     private final Queue<T> pool;
-    private @Nullable T pendingModel;
+    private @Nullable T pending;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -56,32 +55,34 @@ public abstract class AbstractPooledAsyncProducer<T>
     //-----------------------------------------------------------------------------------------------------------------
     @Override
     protected final @Nullable T tryComputeNext() throws Exception {
-        T value = pollNext();
-        if (value == null) {
-            return null;
+        T alreadyPending = pending;
+        if (alreadyPending != null) {
+            boolean success = tryComputeNext(alreadyPending, false);
+            if (success) {
+                pending = null;
+                return alreadyPending;
+            }
+            else {
+                return null;
+            }
         }
-
-        boolean success = tryComputeNext(value);
-        if (success) {
-            pendingModel = null;
-            return value;
+        else {
+            T polled = pool.poll();
+            if (polled != null) {
+                clear(polled);
+                boolean success = tryComputeNext(polled, true);
+                if (success) {
+                    return polled;
+                }
+                else {
+                    pending = polled;
+                    return null;
+                }
+            }
+            else {
+                return null;
+            }
         }
-        return null;
-    }
-
-
-    private @Nullable T pollNext() {
-        T existing = pendingModel;
-        if (existing != null) {
-            return existing;
-        }
-
-        T polled = pool.poll();
-        if (polled != null) {
-            clear(polled);
-            pendingModel = polled;
-        }
-        return polled;
     }
 
 
@@ -103,5 +104,5 @@ public abstract class AbstractPooledAsyncProducer<T>
      * @param value pooled, will be continued with previous value after returning false
      * @return true if success/available/consumed, false if value was not consumed
      */
-    protected abstract boolean tryComputeNext(T value) throws Exception;
+    protected abstract boolean tryComputeNext(T value, boolean initialAttempt) throws Exception;
 }
