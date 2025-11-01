@@ -15,16 +15,14 @@ public abstract class AbstractPooledAsyncProducer<T>
         implements PooledAsyncProducer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
-    private final Supplier<T> creator;
     private final Queue<T> pool;
     private @Nullable T pendingModel;
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public AbstractPooledAsyncProducer(Supplier<T> creator, int queueSize, ThreadFactory threadFactory) {
+    public AbstractPooledAsyncProducer(int queueSize, ThreadFactory threadFactory) {
         super(queueSize, threadFactory);
-        this.creator = creator;
-        pool = new ArrayBlockingQueue<T>(queueSize);
+        pool = new ArrayBlockingQueue<>(queueSize);
     }
 
 
@@ -34,7 +32,7 @@ public abstract class AbstractPooledAsyncProducer<T>
         doInit();
 
         for (int i = 0; i < queueSizeLimit; i++) {
-            T item = Objects.requireNonNull(creator.get());
+            T item = Objects.requireNonNull(create());
             pool.add(item);
         }
     }
@@ -48,15 +46,11 @@ public abstract class AbstractPooledAsyncProducer<T>
     public final void release(T value) {
         throwExecutionExceptionIfRequired();
 
-        clear(value);
         boolean added = pool.add(value);
         if (! added) {
             throw new IllegalStateException("No space (" + queueSizeLimit + "): " + value);
         }
     }
-
-
-    protected abstract void clear(T value);
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -83,13 +77,30 @@ public abstract class AbstractPooledAsyncProducer<T>
         }
 
         T polled = pool.poll();
-        pendingModel = polled;
+        if (polled != null) {
+            clear(polled);
+            pendingModel = polled;
+        }
         return polled;
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     /**
-     * @param value pooled
+     * @return new instance of pooled value (will be cleared before every use)
+     */
+    protected abstract T create();
+
+
+    /**
+     * Executes within the manager thread
+     * @param value to be cleared (i.e. reset to original state) to be used again
+     */
+    protected abstract void clear(T value);
+
+
+    /**
+     * @param value pooled, will be continued with previous value after returning false
      * @return true if success/available/consumed, false if value was not consumed
      */
     protected abstract boolean tryComputeNext(T value) throws Exception;

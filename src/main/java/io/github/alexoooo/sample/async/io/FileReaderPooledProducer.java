@@ -16,14 +16,16 @@ public class FileReaderPooledProducer
 {
     //-----------------------------------------------------------------------------------------------------------------
     private final Path path;
+    private final int chunkSize;
 
     private @Nullable InputStream inputStream;
 
 
     //-----------------------------------------------------------------------------------------------------------------
     public FileReaderPooledProducer(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
-        super(() -> new FileChunk(chunkSize), queueSize, threadFactory);
+        super(queueSize, threadFactory);
         this.path = path;
+        this.chunkSize = chunkSize;
     }
 
 
@@ -31,6 +33,12 @@ public class FileReaderPooledProducer
     @Override
     protected void doInit() throws Exception {
         inputStream = Files.newInputStream(path);
+    }
+
+
+    @Override
+    protected FileChunk create() {
+        return new FileChunk(chunkSize);
     }
 
 
