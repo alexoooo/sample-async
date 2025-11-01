@@ -35,6 +35,12 @@ public class FileReaderPooledProducer
 
 
     @Override
+    protected void clear(FileChunk value) {
+        value.length = 0;
+    }
+
+
+    @Override
     protected boolean tryComputeNext(FileChunk chunk) throws Exception {
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {

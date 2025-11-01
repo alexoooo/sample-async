@@ -45,7 +45,10 @@ public abstract class AbstractPooledAsyncProducer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    public void release(T value) {
+    public final void release(T value) {
+        throwExecutionExceptionIfRequired();
+
+        clear(value);
         boolean added = pool.add(value);
         if (! added) {
             throw new IllegalStateException("No space (" + queueSizeLimit + "): " + value);
@@ -53,18 +56,21 @@ public abstract class AbstractPooledAsyncProducer<T>
     }
 
 
+    protected abstract void clear(T value);
+
+
     //-----------------------------------------------------------------------------------------------------------------
     @Override
     protected final @Nullable T tryComputeNext() throws Exception {
-        T item = pollNext();
-        if (item == null) {
+        T value = pollNext();
+        if (value == null) {
             return null;
         }
 
-        boolean success = tryComputeNext(item);
+        boolean success = tryComputeNext(value);
         if (success) {
             pendingModel = null;
-            return item;
+            return value;
         }
         return null;
     }
@@ -83,8 +89,8 @@ public abstract class AbstractPooledAsyncProducer<T>
 
 
     /**
-     * @param item pooled
-     * @return true if success/available/consumed, false if item was not consumed
+     * @param value pooled
+     * @return true if success/available/consumed, false if value was not consumed
      */
-    protected abstract boolean tryComputeNext(T item) throws Exception;
+    protected abstract boolean tryComputeNext(T value) throws Exception;
 }
