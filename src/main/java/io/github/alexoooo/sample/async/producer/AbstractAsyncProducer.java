@@ -155,7 +155,7 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         boolean added = false;
-        for (int i = 0; i < remainingCapacity; i++) {
+        for (int i = 0; i < remainingCapacity && ! closeRequested(); i++) {
             T nextOrNull = tryComputeNext();
             if (nextOrNull != null) {
                 queue.add(nextOrNull);
