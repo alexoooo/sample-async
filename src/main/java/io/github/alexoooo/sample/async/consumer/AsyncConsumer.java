@@ -41,7 +41,7 @@ public interface AsyncConsumer<T>
      * @throws RuntimeException to report asynchronous background failure
      */
     @SuppressWarnings("UnusedReturnValue")
-    int offer(Queue<T> items) throws RuntimeException;
+    int offer(List<T> items, int startingIndex) throws RuntimeException;
 
 
     /**

@@ -60,15 +60,12 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     @Override
-    public final int offer(Queue<T> items) {
+    public final int offer(List<T> items, int startingIndex) {
         checkNotClosedOrFailed();
 
         int count = 0;
-        while (true) {
-            T item = items.poll();
-            if (item == null) {
-                break;
-            }
+        for (int i = startingIndex, s = items.size(); i < s; i++) {
+            T item = items.get(i);
             boolean added = queue.offer(item);
             if (added) {
                 count++;

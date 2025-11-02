@@ -40,11 +40,11 @@ public class Main {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private static void heapRead(Path path) {
+    private static void heapRead(Path path) throws Exception {
         FileLineCounter counter = new FileLineCounter(
                 1024, Thread.ofPlatform().factory());
 
-        Deque<FileChunk> buffer = new ArrayDeque<>();
+        List<FileChunk> buffer = new ArrayList<>();
         try (FileReaderProducer reader = new FileReaderProducer(
                 path, 1024, 1024, Thread.ofPlatform().factory());
              counter
@@ -53,13 +53,21 @@ public class Main {
             counter.start();
 
             while (true) {
+//                AsyncResult<FileChunk> next = reader.poll();
+//                if (next.value() != null) {
+//                    counter.put(next.value());
+//                }
+//                if (next.endReached()) {
+//                    break;
+//                }
+
 //                boolean hasNext = reader.poll(counter::put);
+//
                 boolean hasNext = reader.poll(buffer);
-
-                while (! buffer.isEmpty()) {
-                    counter.offer(buffer);
+                for (int i = 0; i < buffer.size();) {
+                    i += counter.offer(buffer, i);
                 }
-
+                buffer.clear();
                 if (! hasNext) {
                     break;
                 }
