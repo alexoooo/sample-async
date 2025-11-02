@@ -4,6 +4,7 @@ package io.github.alexoooo.sample.async.producer;
 import io.github.alexoooo.sample.async.AsyncState;
 import io.github.alexoooo.sample.async.AsyncWorker;
 
+import java.util.Collection;
 import java.util.function.Consumer;
 
 
@@ -44,5 +45,5 @@ public interface AsyncProducer<T>
      * @return true if more data might be available (the end of stream has not been reached yet)
      * @throws RuntimeException to report asynchronous background failure
      */
-    boolean poll(Consumer<T> consumer) throws RuntimeException;
+    boolean poll(Collection<T> consumer) throws RuntimeException;
 }

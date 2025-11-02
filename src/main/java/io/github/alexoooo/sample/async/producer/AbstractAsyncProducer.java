@@ -4,6 +4,7 @@ package io.github.alexoooo.sample.async.producer;
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -40,6 +41,8 @@ public abstract class AbstractAsyncProducer<T>
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSizeLimit;
     private final BlockingQueue<T> queue;
+//    private final SpmcArrayQueue<T> queue;
+//    private final ManyToManyConcurrentArrayQueue<T> queue;
     private final AtomicBoolean endReached = new AtomicBoolean();
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
@@ -55,6 +58,8 @@ public abstract class AbstractAsyncProducer<T>
     public AbstractAsyncProducer(int queueSizeLimit, ThreadFactory threadFactory) {
         super(threadFactory);
         queue = new ArrayBlockingQueue<>(queueSizeLimit);
+//        queue = new SpmcArrayQueue<>(queueSizeLimit);
+//        queue = new ManyToManyConcurrentArrayQueue<>(queueSizeLimit);
         this.queueSizeLimit = queueSizeLimit;
     }
 
@@ -85,10 +90,9 @@ public abstract class AbstractAsyncProducer<T>
         T next = queue.poll();
 
         if (next == null) {
-            if (closed()) {
-                return AsyncResult.endReachedWithoutValue();
-            }
-            return AsyncResult.notReady();
+            return closed()
+                    ? AsyncResult.endReachedWithoutValue()
+                    : AsyncResult.notReady();
         }
         synchronized (eventLoopMonitor) {
             eventLoopMonitor.notify();
@@ -98,7 +102,7 @@ public abstract class AbstractAsyncProducer<T>
 
 
     @Override
-    public final boolean poll(Consumer<T> consumer) {
+    public final boolean poll(Collection<T> consumer) {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
@@ -107,17 +111,9 @@ public abstract class AbstractAsyncProducer<T>
             throw new IllegalStateException("Iteration in progress");
         }
 
-        boolean empty = true;
-        while (true) {
-            T next = queue.poll();
-            if (next == null) {
-                break;
-            }
-            consumer.accept(next);
-            empty = false;
-        }
+        int drained = queue.drainTo(consumer);
 
-        if (empty) {
+        if (drained == 0) {
             return ! closed();
         }
         synchronized (eventLoopMonitor) {
@@ -151,26 +147,27 @@ public abstract class AbstractAsyncProducer<T>
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    protected final boolean work() {
-        if (queue.size() >= queueSizeLimit) {
+    protected final boolean work() throws Exception {
+        int size = queue.size();
+        int remainingCapacity = queueSizeLimit - size;
+        if (remainingCapacity == 0) {
             sleepForPolling(eventLoopMonitor);
             return true;
         }
 
-        T nextOrNull;
-        try {
-            nextOrNull = tryComputeNext();
-        }
-        catch (Throwable e) {
-            offerFirstException(e);
-            return false;
+        boolean added = false;
+        for (int i = 0; i < remainingCapacity; i++) {
+            T nextOrNull = tryComputeNext();
+            if (nextOrNull != null) {
+                queue.add(nextOrNull);
+                added = true;
+            }
+            else {
+                break;
+            }
         }
 
-        if (nextOrNull != null) {
-            boolean added = queue.offer(nextOrNull);
-            if (! added) {
-                throw new IllegalStateException("Unable to add");
-            }
+        if (added) {
             synchronized (hasNextMonitor) {
                 hasNextMonitor.notify();
             }

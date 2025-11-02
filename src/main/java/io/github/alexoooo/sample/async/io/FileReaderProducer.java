@@ -4,6 +4,7 @@ package io.github.alexoooo.sample.async.io;
 import io.github.alexoooo.sample.async.producer.AbstractAsyncProducer;
 import org.jspecify.annotations.Nullable;
 
+import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,16 +29,23 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    private InputStream inputStream() {
+        return Objects.requireNonNull(inputStream);
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     @Override
     protected void init() throws Exception {
-        inputStream = Files.newInputStream(path);
+        inputStream = new BufferedInputStream(Files.newInputStream(path), 256 * 1024);
     }
 
 
     @Override
     protected @Nullable FileChunk tryComputeNext() throws Exception {
         FileChunk chunk = new FileChunk(chunkSize);
-        int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
+        @SuppressWarnings("resource")
+        int read = inputStream().read(chunk.bytes);
         if (read == -1) {
             return endReached();
         }
@@ -48,6 +56,6 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
 
     @Override
     protected void closeImpl() throws Exception {
-        Objects.requireNonNull(inputStream).close();
+        inputStream().close();
     }
 }

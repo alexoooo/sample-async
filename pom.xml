@@ -10,6 +10,9 @@
 
 
     <properties>
+        <jctools-core.version>4.0.5</jctools-core.version>
+        <agrona.version>2.3.0</agrona.version>
+
         <jspecify.version>1.0.0</jspecify.version>
         <junit.version>6.0.0</junit.version>
         <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
@@ -39,6 +42,17 @@
 
 
     <dependencies>
+        <!--<dependency>
+            <groupId>org.jctools</groupId>
+            <artifactId>jctools-core</artifactId>
+            <version>${jctools-core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.agrona</groupId>
+            <artifactId>agrona</artifactId>
+            <version>${agrona.version}</version>
+        </dependency>-->
+
         <dependency>
             <groupId>org.jspecify</groupId>
             <artifactId>jspecify</artifactId>

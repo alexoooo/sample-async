@@ -10,40 +10,56 @@ import io.github.alexoooo.sample.async.producer.AsyncResult;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
 
 
 public class Main {
     //-----------------------------------------------------------------------------------------------------------------
     static void main(String[] args) throws Exception {
+        IO.println("start: " + LocalTime.now());
+
 //        Path path = Path.of("C:/~/data/measurements-100000.txt");
 //        Path path = Path.of("C:/~/data/measurements-10000000.txt");
         Path path = Path.of("C:/~/data/measurements-1000000000.txt");
 
-        long start = System.currentTimeMillis();
+        for (int i = 0; i < 100; i++) {
+            long start = System.currentTimeMillis();
 
-        heapRead(path);
-//        pooledRead(path);
-//        directRead(path);
-//        pooledIterator(path);
+            heapRead(path);
+//            pooledRead(path);
+//            directRead(path);
+//            pooledIterator(path);
 
-        IO.println("took: " + (System.currentTimeMillis() - start));
+            IO.println(i + " took: " + (System.currentTimeMillis() - start) + "ms");
+        }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private static void heapRead(Path path) {
         FileLineCounter counter = new FileLineCounter(
-                16, Thread.ofPlatform().factory());
+                1024, Thread.ofPlatform().factory());
 
+        Deque<FileChunk> buffer = new ArrayDeque<>();
         try (FileReaderProducer reader = new FileReaderProducer(
-                path, 32 * 1024, 16, Thread.ofPlatform().factory());
+                path, 1024, 1024, Thread.ofPlatform().factory());
              counter
         ) {
             reader.start();
             counter.start();
 
             while (true) {
-                boolean hasNext = reader.poll(counter::put);
+//                boolean hasNext = reader.poll(counter::put);
+                boolean hasNext = reader.poll(buffer);
+
+                while (! buffer.isEmpty()) {
+                    counter.offer(buffer);
+                }
+
                 if (! hasNext) {
                     break;
                 }

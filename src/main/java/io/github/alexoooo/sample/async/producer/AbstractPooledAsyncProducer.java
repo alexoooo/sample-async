@@ -15,6 +15,8 @@ public abstract class AbstractPooledAsyncProducer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
     private final Queue<T> pool;
+//    private final MpscArrayQueue<T> pool;
+//    private final ManyToOneConcurrentArrayQueue<T> pool;
     private @Nullable T pending;
 
 
@@ -22,6 +24,8 @@ public abstract class AbstractPooledAsyncProducer<T>
     public AbstractPooledAsyncProducer(int queueSize, ThreadFactory threadFactory) {
         super(queueSize, threadFactory);
         pool = new ArrayBlockingQueue<>(queueSize);
+//        pool = new MpscArrayQueue<>(queueSize);
+//        pool = new ManyToOneConcurrentArrayQueue<>(queueSize);
     }
 
 

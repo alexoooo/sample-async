@@ -3,6 +3,9 @@ package io.github.alexoooo.sample.async.consumer;
 
 import io.github.alexoooo.sample.async.AsyncWorker;
 
+import java.util.List;
+import java.util.Queue;
+
 
 /**
  * Closing will attempt to process any pending items (unless an exception was previously thrown).
@@ -29,6 +32,16 @@ public interface AsyncConsumer<T>
      * @throws RuntimeException to report asynchronous background failure
      */
     boolean offer(T item) throws RuntimeException;
+
+
+    /**
+     * If there's not enough capacity to accept all the items, then a short pause is introduced
+     * @param items attempt to add all to processing queue
+     * @return number of items that were accepted (i.e. there was space in the processing queue)
+     * @throws RuntimeException to report asynchronous background failure
+     */
+    @SuppressWarnings("UnusedReturnValue")
+    int offer(Queue<T> items) throws RuntimeException;
 
 
     /**
