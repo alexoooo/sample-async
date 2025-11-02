@@ -5,7 +5,6 @@ import io.github.alexoooo.sample.async.AsyncState;
 import io.github.alexoooo.sample.async.AsyncWorker;
 
 import java.util.Collection;
-import java.util.function.Consumer;
 
 
 public interface AsyncProducer<T>

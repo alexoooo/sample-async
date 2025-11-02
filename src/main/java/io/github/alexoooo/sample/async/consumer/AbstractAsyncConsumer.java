@@ -5,7 +5,6 @@ import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;

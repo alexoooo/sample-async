@@ -4,7 +4,6 @@ package io.github.alexoooo.sample.async.consumer;
 import io.github.alexoooo.sample.async.AsyncWorker;
 
 import java.util.List;
-import java.util.Queue;
 
 
 /**
