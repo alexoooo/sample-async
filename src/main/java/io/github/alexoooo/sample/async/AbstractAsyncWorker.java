@@ -158,6 +158,11 @@ public abstract class AbstractAsyncWorker
             return false;
         }
 
+        Thread thread = threadHolder.get();
+        if (thread != null) {
+            // NB: in case implementing class is blocked
+            thread.interrupt();
+        }
         return closeRequested.compareAndSet(false, true);
     }
 
