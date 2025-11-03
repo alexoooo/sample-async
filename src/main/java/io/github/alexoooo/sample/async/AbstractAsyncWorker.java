@@ -3,6 +3,8 @@ package io.github.alexoooo.sample.async;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,7 +42,7 @@ public abstract class AbstractAsyncWorker
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    protected void throwExecutionExceptionIfRequired() {
+    protected final void throwExecutionExceptionIfRequired() {
         Throwable exception = failure();
         if (exception == null) {
             return;
@@ -48,20 +50,48 @@ public abstract class AbstractAsyncWorker
         throw new RuntimeException(exception);
     }
 
-    protected void offerFirstException(Throwable exception) {
+    protected final void offerFirstException(Throwable exception) {
+        if (closeRequested() && isInterruptedTransitively(exception)) {
+            return;
+        }
         firstException.compareAndSet(null, exception);
     }
 
+    private boolean isInterruptedTransitively(Throwable exception) {
+        Set<Throwable> chain = new LinkedHashSet<>();
+        populateExceptionChain(exception, chain);
+        for (Throwable t : chain) {
+            if (t instanceof InterruptedException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void populateExceptionChain(Throwable exception, Set<Throwable> chain) {
+         boolean added = chain.add(exception);
+         if (! added) {
+             return;
+         }
+         if (exception.getCause() != null) {
+             populateExceptionChain(exception.getCause(), chain);
+         }
+         for (Throwable suppressed : exception.getSuppressed()) {
+             populateExceptionChain(suppressed, chain);
+         }
+    }
+
+
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    protected boolean failed() {
+    protected final boolean failed() {
         return failure() != null;
     }
 
-    protected boolean closeRequested() {
+    protected final boolean closeRequested() {
         return closeRequested.get();
     }
 
-    protected boolean closed() {
+    protected final boolean closed() {
         return closed.getCount() == 0;
     }
 
@@ -158,12 +188,16 @@ public abstract class AbstractAsyncWorker
             return false;
         }
 
-        Thread thread = threadHolder.get();
-        if (thread != null) {
-            // NB: in case implementing class is blocked
-            thread.interrupt();
+        AsyncState currentState = state();
+        boolean newlyClosed = closeRequested.compareAndSet(false, true);
+        if (newlyClosed) {
+            Thread thread = threadHolder.get();
+            if (thread != null && (currentState == AsyncState.Starting || currentState == AsyncState.Running)) {
+                // NB: in case implementing class is blocked on init()/work()
+                thread.interrupt();
+            }
         }
-        return closeRequested.compareAndSet(false, true);
+        return newlyClosed;
     }
 
 
@@ -240,11 +274,18 @@ public abstract class AbstractAsyncWorker
     //-----------------------------------------------------------------------------------------------------------------
     abstract protected void init() throws Exception;
 
+
     /**
      * @return true if there is more work to do
      */
     abstract protected boolean work() throws Exception;
 
 
+    /**
+     * Should not rely on InterruptedException,
+     *  it can hang (no way to trigger from the outside) or
+     *  spuriously trigger (as part of closing logic which is aimed at init/work)
+     * @throws Exception on logic or I/O failure
+     */
     abstract protected void closeImpl() throws Exception;
 }
