@@ -8,7 +8,6 @@ import java.util.Collection;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -42,7 +41,8 @@ public abstract class AbstractAsyncProducer<T>
     private final BlockingQueue<T> queue;
 //    private final SpmcArrayQueue<T> queue;
 //    private final ManyToManyConcurrentArrayQueue<T> queue;
-    private final AtomicBoolean endReached = new AtomicBoolean();
+//    private final AtomicBoolean endReached = new AtomicBoolean();
+    private boolean endReached = false;
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
 
@@ -155,11 +155,14 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         boolean added = false;
-        for (int i = 0; i < remainingCapacity && ! closeRequested(); i++) {
+        for (int i = 0; i < remainingCapacity; i++) {
             T nextOrNull = tryComputeNext();
             if (nextOrNull != null) {
                 queue.add(nextOrNull);
                 added = true;
+                if (endReached) {
+                    break;
+                }
             }
             else {
                 break;
@@ -175,7 +178,7 @@ public abstract class AbstractAsyncProducer<T>
             sleepForBackoff();
         }
 
-        return ! endReached.get();
+        return ! endReached;
     }
 
 
@@ -232,10 +235,10 @@ public abstract class AbstractAsyncProducer<T>
      */
     @SuppressWarnings("UnusedReturnValue")
     protected @Nullable T endReached() {
-        boolean unique = endReached.compareAndSet(false, true);
-        if (! unique) {
+        if (endReached) {
             throw new IllegalStateException("End already reached");
         }
+        endReached = true;
         return null;
     }
 
