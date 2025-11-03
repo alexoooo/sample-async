@@ -4,7 +4,6 @@ package io.github.alexoooo.sample.async;
 import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashSet;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
