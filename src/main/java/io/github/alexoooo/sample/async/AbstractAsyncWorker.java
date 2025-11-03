@@ -4,9 +4,11 @@ package io.github.alexoooo.sample.async;
 import org.jspecify.annotations.Nullable;
 
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
@@ -18,6 +20,7 @@ public abstract class AbstractAsyncWorker
     //-----------------------------------------------------------------------------------------------------------------
     private static final int sleepForPollingMillis = 1;
     private static final int sleepForBackoffNanos = 100_000;
+    private static final int awaitMillisBeforeInterrupting = 5_000;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -188,16 +191,7 @@ public abstract class AbstractAsyncWorker
             return false;
         }
 
-        AsyncState currentState = state();
-        boolean newlyClosed = closeRequested.compareAndSet(false, true);
-        if (newlyClosed) {
-            Thread thread = threadHolder.get();
-            if (thread != null && (currentState == AsyncState.Starting || currentState == AsyncState.Running)) {
-                // NB: in case implementing class is blocked on init()/work()
-                thread.interrupt();
-            }
-        }
-        return newlyClosed;
+        return closeRequested.compareAndSet(false, true);
     }
 
 
@@ -212,7 +206,16 @@ public abstract class AbstractAsyncWorker
         Thread thread = threadHolder.getAndSet(null);
 
         try {
-            closed.await();
+            boolean closedBeforeTimeout = closed.await(awaitMillisBeforeInterrupting, TimeUnit.MILLISECONDS);
+
+            if (! closedBeforeTimeout) {
+                if (thread == null) {
+                    throw new IllegalStateException("Thread missing");
+                }
+                thread.interrupt();
+                closed.await();
+            }
+
             if (thread != null) {
                 thread.join();
             }
