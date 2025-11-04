@@ -24,6 +24,7 @@ public interface AsyncWorker
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      * @return true if closing was newly requested
      */
+    @SuppressWarnings("UnusedReturnValue")
     boolean closeAsync();
 
 

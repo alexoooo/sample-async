@@ -61,6 +61,9 @@ public class FileReaderPooledProducer
 
 
     @Override
+    protected void closeAsyncImpl() {}
+
+    @Override
     protected void closeImpl() throws Exception {
         Objects.requireNonNull(inputStream).close();
     }

@@ -53,6 +53,10 @@ public class FileLineCounter
         return true;
     }
 
+
+    @Override
+    protected void closeAsyncImpl() {}
+
     @Override
     protected void doClose() {}
 }

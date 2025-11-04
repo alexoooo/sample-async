@@ -7,19 +7,21 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 
 
+/**
+ * InterruptedException is not supported, stop by calling close(),
+ *  and if underlying implementation needs to be interrupted then can do that in closeAsyncImpl()
+ */
 public abstract class AbstractAsyncWorker
         implements AsyncWorker
 {
     //-----------------------------------------------------------------------------------------------------------------
     private static final int sleepForPollingMillis = 1;
     private static final int sleepForBackoffNanos = 100_000;
-    private static final int awaitMillisBeforeInterrupting = 5_000;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -53,34 +55,7 @@ public abstract class AbstractAsyncWorker
     }
 
     protected final void offerFirstException(Throwable exception) {
-        if (closeRequested() && isInterruptedTransitively(exception)) {
-            return;
-        }
         firstException.compareAndSet(null, exception);
-    }
-
-    private boolean isInterruptedTransitively(Throwable exception) {
-        Set<Throwable> chain = new LinkedHashSet<>();
-        populateExceptionChain(exception, chain);
-        for (Throwable t : chain) {
-            if (t instanceof InterruptedException) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void populateExceptionChain(Throwable exception, Set<Throwable> chain) {
-         boolean added = chain.add(exception);
-         if (! added) {
-             return;
-         }
-         if (exception.getCause() != null) {
-             populateExceptionChain(exception.getCause(), chain);
-         }
-         for (Throwable suppressed : exception.getSuppressed()) {
-             populateExceptionChain(suppressed, chain);
-         }
     }
 
 
@@ -190,7 +165,17 @@ public abstract class AbstractAsyncWorker
             return false;
         }
 
-        return closeRequested.compareAndSet(false, true);
+        boolean newRequest = closeRequested.compareAndSet(false, true);
+        if (newRequest) {
+            try {
+                closeAsyncImpl();
+            }
+            catch (Throwable t) {
+                offerFirstException(t);
+                throw new RuntimeException(t);
+            }
+        }
+        return newRequest;
     }
 
 
@@ -205,16 +190,7 @@ public abstract class AbstractAsyncWorker
         Thread thread = threadHolder.getAndSet(null);
 
         try {
-            boolean closedBeforeTimeout = closed.await(awaitMillisBeforeInterrupting, TimeUnit.MILLISECONDS);
-
-            if (! closedBeforeTimeout) {
-                if (thread == null) {
-                    throw new IllegalStateException("Thread missing");
-                }
-                thread.interrupt();
-                closed.await();
-            }
-
+            closed.await();
             if (thread != null) {
                 thread.join();
             }
@@ -284,9 +260,12 @@ public abstract class AbstractAsyncWorker
 
 
     /**
-     * Should not rely on InterruptedException,
-     *  it can hang (no way to trigger from the outside) or
-     *  spuriously trigger (as part of closing logic which is aimed at init/work)
+     * Invoked from an unpredictable thread, can be used for interrupt handling
+     */
+    abstract protected void closeAsyncImpl() throws Exception;
+
+
+    /**
      * @throws Exception on logic or I/O failure
      */
     abstract protected void closeImpl() throws Exception;
