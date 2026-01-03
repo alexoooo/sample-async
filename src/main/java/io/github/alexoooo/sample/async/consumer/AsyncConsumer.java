@@ -48,4 +48,7 @@ public interface AsyncConsumer<T>
      * @throws RuntimeException to report asynchronous background failure, or close request while waiting to add
      */
     void put(T item) throws RuntimeException;
+
+
+//    void put(List<T> items) throws RuntimeException;
 }

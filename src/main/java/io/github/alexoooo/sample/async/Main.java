@@ -76,9 +76,10 @@ public class Main {
             while (true) {
                 AsyncResult<FileChunk> result = reader.poll();
 
-                if (result.value() != null) {
-                    total += result.value().length;
-                    reader.release(result.value());
+                FileChunk value = result.value();
+                if (value != null) {
+                    total += value.length;
+                    reader.release(value);
                 }
 
                 if (result.endReached()) {

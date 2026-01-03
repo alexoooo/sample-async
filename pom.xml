@@ -10,20 +10,24 @@
 
 
     <properties>
-        <jctools-core.version>4.0.5</jctools-core.version>
-        <agrona.version>2.3.0</agrona.version>
-
-        <jspecify.version>1.0.0</jspecify.version>
-        <junit.version>6.0.0</junit.version>
-        <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
-        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
-        <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
-        <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
-
         <main.class>io.github.alexoooo.sample.async.Main</main.class>
 
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.release>25</maven.compiler.release>
+
+        <!--<jctools-core.version>4.0.5</jctools-core.version>-->
+        <!--<agrona.version>2.4.0</agrona.version>-->
+
+        <jspecify.version>1.0.0</jspecify.version>
+
+        <junit.version>6.0.1</junit.version>
+
+        <maven-dependency-plugin.version>3.9.0</maven-dependency-plugin.version>
+        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
+        <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
+        <maven-enforcer-plugin.version>3.6.2</maven-enforcer-plugin.version>
+
+        <!--<maven.compiler.source>25</maven.compiler.source>-->
+        <!--<maven.compiler.target>25</maven.compiler.target>-->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
