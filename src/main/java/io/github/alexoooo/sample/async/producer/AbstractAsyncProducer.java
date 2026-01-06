@@ -39,9 +39,6 @@ public abstract class AbstractAsyncProducer<T>
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSizeLimit;
     private final BlockingQueue<T> queue;
-//    private final SpmcArrayQueue<T> queue;
-//    private final ManyToManyConcurrentArrayQueue<T> queue;
-//    private final AtomicBoolean endReached = new AtomicBoolean();
     private boolean endReached = false;
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
@@ -57,8 +54,6 @@ public abstract class AbstractAsyncProducer<T>
     public AbstractAsyncProducer(int queueSizeLimit, ThreadFactory threadFactory) {
         super(threadFactory);
         queue = new ArrayBlockingQueue<>(queueSizeLimit);
-//        queue = new SpmcArrayQueue<>(queueSizeLimit);
-//        queue = new ManyToManyConcurrentArrayQueue<>(queueSizeLimit);
         this.queueSizeLimit = queueSizeLimit;
     }
 
@@ -123,7 +118,7 @@ public abstract class AbstractAsyncProducer<T>
 
 
     @Override
-    public AsyncResult<T> peek() throws RuntimeException {
+    public final AsyncResult<T> peek() throws RuntimeException {
         if (! started) {
             throw new IllegalStateException("Not started");
         }
@@ -234,13 +229,19 @@ public abstract class AbstractAsyncProducer<T>
      * @return dummy value (null)
      */
     @SuppressWarnings("UnusedReturnValue")
-    protected @Nullable T endReached() {
+    protected final @Nullable T endReached() {
         if (endReached) {
             throw new IllegalStateException("End already reached");
         }
         endReached = true;
         return null;
     }
+
+    @SuppressWarnings("unused")
+    protected final boolean isEndReached() {
+        return endReached;
+    }
+
 
     /**
      * if item is not computed (null return), then the thread will sleep for a bit to avoid pinning
