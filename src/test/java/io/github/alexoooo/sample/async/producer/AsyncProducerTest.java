@@ -1,15 +1,11 @@
 package io.github.alexoooo.sample.async.producer;
 
 import io.github.alexoooo.sample.async.AsyncState;
-import io.github.alexoooo.sample.async.AsyncWorker;
-import org.jspecify.annotations.Nullable;
-import org.junit.jupiter.api.AssertionFailureBuilder;
+import io.github.alexoooo.sample.async.producer.support.AsyncTestUtils;
+import io.github.alexoooo.sample.async.producer.support.ControllableEmptyProducer;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,101 +13,62 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class AsyncProducerTest {
     //-----------------------------------------------------------------------------------------------------------------
-    private static final Duration stateTransitionDelay = Duration.ofMillis(1_000);
-
-
-    //-----------------------------------------------------------------------------------------------------------------
     @Test
-    public void emptyProducerLifecycle() throws InterruptedException, TimeoutException {
-        CountDownLatch initLatch = new CountDownLatch(1);
-        CountDownLatch computeLatch = new CountDownLatch(1);
-        CountDownLatch closeAsyncStartLatch = new CountDownLatch(1);
-        CountDownLatch closeAsyncEndLatch = new CountDownLatch(1);
-        CountDownLatch closeLatch = new CountDownLatch(1);
-        AsyncProducer<Void> emptyProducer = new AbstractAsyncProducer<>(
-                1, Thread.ofPlatform().factory()) {
-            @Override
-            protected @Nullable Void tryComputeNext() throws InterruptedException {
-                computeLatch.await();
-                return endReached();
-            }
-
-            @Override
-            protected void init() throws InterruptedException {
-                initLatch.await();
-            }
-
-            @Override
-            protected void closeAsyncImpl() throws InterruptedException {
-                closeAsyncStartLatch.await();
-                closeAsyncEndLatch.countDown();
-            }
-
-            @Override
-            protected void closeImpl() throws InterruptedException {
-                closeLatch.await();
-            }
-        };
+    public void emptyProducerLifecycleEndReached() throws InterruptedException, TimeoutException {
+        ControllableEmptyProducer producer = new ControllableEmptyProducer();
 
         try {
-            emptyProducer.poll();
+            producer.poll();
             throw new AssertionFailedError();
         }
         catch (IllegalStateException expected) {}
 
-        assertEquals(AsyncState.Created, emptyProducer.state());
+        assertEquals(AsyncState.Created, producer.state());
 
-        Thread asyncStarter = new Thread(emptyProducer::start);
-        asyncStarter.start();
-        awaitState(AsyncState.Starting, emptyProducer);
+        Thread asyncStart = new Thread(producer::start);
+        asyncStart.start();
+        AsyncTestUtils.awaitState(AsyncState.Starting, producer);
 
-        initLatch.countDown();
-        asyncStarter.join();
-        awaitState(AsyncState.Running, emptyProducer);
+        producer.doInit();
+        asyncStart.join();
+        AsyncTestUtils.awaitState(AsyncState.Running, producer);
 
-        AsyncResult<Void> pollWhileRunning = emptyProducer.poll();
+        AsyncResult<Void> pollWhileRunning = producer.poll();
         assertNull(pollWhileRunning.value());
         assertFalse(pollWhileRunning.endReached());
 
-        computeLatch.countDown();
-        awaitState(AsyncState.Closing, emptyProducer);
+        producer.produceEndReached();
+        AsyncTestUtils.awaitState(AsyncState.Closing, producer);
 
-//        emptyProducer
-//        Thread asyncCloser = new Thread(emptyProducer::close);
-//        asyncCloser.start();
-//        awaitState(AsyncState.Closing, emptyProducer);
+        producer.doCloseAsync();
+        producer.awaitCloseAsync();
+        assertEquals(AsyncState.Closing, producer.state());
 
-        closeAsyncStartLatch.countDown();
-        closeAsyncEndLatch.await();
-        assertEquals(AsyncState.Closing, emptyProducer.state());
+        producer.doClose();
+        AsyncTestUtils.awaitState(AsyncState.Terminal, producer);
 
-        closeLatch.countDown();
-//        asyncCloser.join();
-        awaitState(AsyncState.Terminal, emptyProducer);
-
-        AsyncResult<Void> pollAfterClose = emptyProducer.poll();
+        AsyncResult<Void> pollAfterClose = producer.poll();
         assertNull(pollAfterClose.value());
         assertTrue(pollAfterClose.endReached());
     }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
-    private void awaitState(AsyncState target, AsyncWorker worker) throws TimeoutException {
-        awaitState(target, worker, stateTransitionDelay);
-    }
+    @Test
+    public void emptyProducerLifecycleClosed() throws InterruptedException, TimeoutException {
+        ControllableEmptyProducer producer = new ControllableEmptyProducer();
 
-    private void awaitState(
-            AsyncState target, AsyncWorker worker, Duration duration
-    ) throws TimeoutException {
-        Instant deadline = Instant.now().plus(duration);
-        while (true) {
-            AsyncState state = worker.state();
-            if (state.equals(target)) {
-                return;
-            }
-            if (deadline.isBefore(Instant.now())) {
-                throw new TimeoutException();
-            }
-        }
+        producer.doInit();
+        producer.start();
+
+        Thread asyncClose = new Thread(producer::close);
+        asyncClose.start();
+        producer.awaitCloseRequested();
+        producer.produceNothing();
+        AsyncTestUtils.awaitState(AsyncState.Closing, producer);
+
+        producer.doCloseAsync();
+        producer.doClose();
+        asyncClose.join();
+        AsyncTestUtils.awaitState(AsyncState.Terminal, producer);
     }
 }
