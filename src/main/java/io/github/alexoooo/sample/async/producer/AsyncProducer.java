@@ -36,6 +36,7 @@ public interface AsyncProducer<T>
     /**
      * @return try to read next available value, which might be the last one (or more might potentially be available)
      * @throws RuntimeException to report asynchronous background failure
+     * @throws IllegalStateException if not started
      */
     AsyncResult<T> poll() throws RuntimeException;
 

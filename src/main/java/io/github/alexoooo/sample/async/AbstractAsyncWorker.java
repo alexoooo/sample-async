@@ -145,6 +145,7 @@ public abstract class AbstractAsyncWorker
 
     private void closeInThread() {
         try {
+            closeAsync();
             closeImpl();
         }
         catch (Throwable e) {

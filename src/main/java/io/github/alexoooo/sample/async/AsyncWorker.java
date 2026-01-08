@@ -15,11 +15,16 @@ public interface AsyncWorker
     //-----------------------------------------------------------------------------------------------------------------
     /**
      * Initializes state and starts background work thread.
+     * @throws IllegalStateException if start already requested
+     * @throws RuntimeException to report exception thrown during initiation
+     * @throws IllegalStateException if interrupted before initiation completed
      */
-    void start();
+    void start() throws RuntimeException;
 
 
     /**
+     * If closing is done in stages, initiate the first asynchronous closing sequence
+     *      (to be followed by the synchronous close)
      * Idempotent (can be called multiple times).
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      * @return true if closing was newly requested
@@ -29,8 +34,9 @@ public interface AsyncWorker
 
 
     /**
-     * Attempts to close even if previously failed.
+     * Attempts to close (even if previously failed).
      * Idempotent (can be called multiple times), on subsequent calls background/closing exceptions will be thrown.
+     * Invoked automatically when all work is done.
      * @throws RuntimeException if closing failed or to report exception previously thrown in background
      */
     @Override

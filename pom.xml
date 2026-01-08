@@ -19,15 +19,13 @@
 
         <jspecify.version>1.0.0</jspecify.version>
 
-        <junit.version>6.0.1</junit.version>
+        <junit.version>6.0.2</junit.version>
 
         <maven-dependency-plugin.version>3.9.0</maven-dependency-plugin.version>
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <maven-enforcer-plugin.version>3.6.2</maven-enforcer-plugin.version>
 
-        <!--<maven.compiler.source>25</maven.compiler.source>-->
-        <!--<maven.compiler.target>25</maven.compiler.target>-->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
