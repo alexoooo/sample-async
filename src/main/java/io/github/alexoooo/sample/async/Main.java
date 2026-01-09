@@ -1,10 +1,10 @@
 package io.github.alexoooo.sample.async;
 
 
-import io.github.alexoooo.sample.async.io.FileChunk;
-import io.github.alexoooo.sample.async.io.FileLineCounter;
-import io.github.alexoooo.sample.async.io.FileReaderPooledProducer;
-import io.github.alexoooo.sample.async.io.FileReaderProducer;
+import io.github.alexoooo.sample.async.generic.io.FileChunk;
+import io.github.alexoooo.sample.async.generic.io.FileLineCounter;
+import io.github.alexoooo.sample.async.generic.io.FileReaderPooledProducer;
+import io.github.alexoooo.sample.async.generic.io.FileReaderProducer;
 import io.github.alexoooo.sample.async.producer.AsyncResult;
 
 import java.io.InputStream;
@@ -43,11 +43,10 @@ public class Main {
                 16, Thread.ofPlatform().factory());
 
         List<FileChunk> buffer = new ArrayList<>();
-        try (FileReaderProducer reader = new FileReaderProducer(
-                path, 32 * 1024, 16, Thread.ofPlatform().factory());
+        try (FileReaderProducer reader = FileReaderProducer.createStarted(
+                path, 32 * 1024, 16);
              counter
         ) {
-            reader.start();
             counter.start();
 
             while (true) {
@@ -67,11 +66,9 @@ public class Main {
 
 
     private static void pooledRead(Path path) {
-        try (FileReaderPooledProducer reader = new FileReaderPooledProducer(
-                path, 32 * 1024, 16, Thread.ofPlatform().factory())
+        try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
+                path, 32 * 1024, 16)
         ) {
-            reader.start();
-
             long total = 0;
             while (true) {
                 AsyncResult<FileChunk> result = reader.poll();
@@ -93,11 +90,9 @@ public class Main {
 
 
     private static void pooledIterator(Path path) {
-        try (FileReaderPooledProducer reader = new FileReaderPooledProducer(
-                path, 32 * 1024, 16, Thread.ofPlatform().factory())
+        try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
+                path, 32 * 1024, 16)
         ) {
-            reader.start();
-
             long total = 0;
             int lines = 1;
             while (reader.hasNext()) {

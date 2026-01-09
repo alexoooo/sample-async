@@ -1,29 +1,47 @@
-package io.github.alexoooo.sample.async.io;
+package io.github.alexoooo.sample.async.generic.io;
 
 
 import io.github.alexoooo.sample.async.producer.AbstractAsyncProducer;
 import org.jspecify.annotations.Nullable;
 
 import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
+import java.util.function.Supplier;
 
 
 public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
     //-----------------------------------------------------------------------------------------------------------------
-    private final Path path;
+    public static FileReaderProducer createStarted(Path path, int chunkSize, int queueSize) {
+        Supplier<InputStream> reader = FileUtils.readerSupplier(path);
+        return createStarted(reader, chunkSize, queueSize);
+    }
+
+    public static FileReaderProducer createStarted(Supplier<InputStream> reader, int chunkSize, int queueSize) {
+        FileReaderProducer instance = new FileReaderProducer(
+                reader, chunkSize, queueSize, Thread.ofPlatform().factory());
+        instance.start();
+        return instance;
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private final Supplier<InputStream> reader;
     private final int chunkSize;
 
     private @Nullable InputStream inputStream;
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public FileReaderProducer(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
+    public FileReaderProducer(
+            Supplier<InputStream> reader, int chunkSize, int queueSize, ThreadFactory threadFactory) {
         super(queueSize, threadFactory);
-        this.path = path;
+        this.reader = reader;
         this.chunkSize = chunkSize;
     }
 
@@ -37,7 +55,8 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
     //-----------------------------------------------------------------------------------------------------------------
     @Override
     protected void init() throws Exception {
-        inputStream = new BufferedInputStream(Files.newInputStream(path), 256 * 1024);
+//        inputStream = new BufferedInputStream(Files.newInputStream(path), 256 * 1024);
+        inputStream = new BufferedInputStream(reader.get(), 256 * 1024);
     }
 
 

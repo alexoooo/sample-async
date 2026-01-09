@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async.io;
+package io.github.alexoooo.sample.async.generic.io;
 
 //-----------------------------------------------------------------------------------------------------------------
 public class FileChunk {

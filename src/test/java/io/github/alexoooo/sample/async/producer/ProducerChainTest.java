@@ -2,7 +2,7 @@ package io.github.alexoooo.sample.async.producer;
 
 
 import io.github.alexoooo.sample.async.AsyncWorker;
-import io.github.alexoooo.sample.async.producer.support.QueueProducer;
+import io.github.alexoooo.sample.async.generic.QueueProducer;
 import io.github.alexoooo.sample.async.producer.support.RepeatingProducer;
 import org.junit.jupiter.api.Test;
 

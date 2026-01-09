@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async.io;
+package io.github.alexoooo.sample.async.generic.io;
 
 
 import io.github.alexoooo.sample.async.producer.AbstractPooledAsyncProducer;
@@ -9,30 +9,46 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
+import java.util.function.Supplier;
 
 
 public class FileReaderPooledProducer
         extends AbstractPooledAsyncProducer<FileChunk>
 {
     //-----------------------------------------------------------------------------------------------------------------
-    private final Path path;
+    public static FileReaderPooledProducer createStarted(Path path, int chunkSize, int queueSize) {
+        Supplier<InputStream> reader = FileUtils.readerSupplier(path);
+        return createStarted(reader, chunkSize, queueSize);
+    }
+
+    public static FileReaderPooledProducer createStarted(Supplier<InputStream> reader, int chunkSize, int queueSize) {
+        FileReaderPooledProducer instance = new FileReaderPooledProducer(
+                reader, chunkSize, queueSize, Thread.ofPlatform().factory());
+        instance.start();
+        return instance;
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private final Supplier<InputStream> reader;
     private final int chunkSize;
 
     private @Nullable InputStream inputStream;
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public FileReaderPooledProducer(Path path, int chunkSize, int queueSize, ThreadFactory threadFactory) {
+    public FileReaderPooledProducer(
+            Supplier<InputStream> reader, int chunkSize, int queueSize, ThreadFactory threadFactory) {
         super(queueSize, threadFactory);
-        this.path = path;
+        this.reader = reader;
         this.chunkSize = chunkSize;
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override
-    protected void doInit() throws Exception {
-        inputStream = Files.newInputStream(path);
+    protected void doInit() {
+        inputStream = reader.get();
     }
 
 

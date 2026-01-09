@@ -33,6 +33,7 @@ public abstract class AbstractAsyncWorker
     protected final CountDownLatch closed = new CountDownLatch(1);
     private final CountDownLatch initiated = new CountDownLatch(1);
     private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
+    protected final AtomicReference<@Nullable Throwable> initException = new AtomicReference<>();
     protected final AtomicReference<@Nullable Throwable> firstException = new AtomicReference<>();
     private final AtomicReference<Boolean> skipBackoff = new AtomicReference<>(false);
 
@@ -91,7 +92,11 @@ public abstract class AbstractAsyncWorker
             throw new IllegalStateException(e);
         }
 
-        throwExecutionExceptionIfRequired();
+        Throwable exception = initException.get();
+        if (exception != null) {
+            offerFirstException(exception);
+            throw new RuntimeException(exception);
+        }
     }
 
 
@@ -119,6 +124,7 @@ public abstract class AbstractAsyncWorker
             return true;
         }
         catch (Throwable e) {
+            initException.compareAndSet(null, e);
             offerFirstException(e);
             return false;
         }
