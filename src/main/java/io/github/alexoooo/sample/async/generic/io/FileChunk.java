@@ -1,6 +1,6 @@
 package io.github.alexoooo.sample.async.generic.io;
 
-//-----------------------------------------------------------------------------------------------------------------
+
 public class FileChunk {
     public final byte[] bytes;
     public int length;

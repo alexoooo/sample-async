@@ -20,9 +20,10 @@ public interface AsyncConsumer<T>
 
 
     /**
+     * Blocks until there are no more pending work items and last item has been processed
      * @throws RuntimeException to report asynchronous background failure, or close request while waiting
      */
-    void awaitZeroPending() throws RuntimeException;
+    void awaitDoneWork() throws RuntimeException;
 
 
     /**

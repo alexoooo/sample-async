@@ -39,16 +39,11 @@ public class Main {
 
     //-----------------------------------------------------------------------------------------------------------------
     private static void heapRead(Path path) throws Exception {
-        FileLineCounter counter = new FileLineCounter(
-                16, Thread.ofPlatform().factory());
-
-        List<FileChunk> buffer = new ArrayList<>();
         try (FileReaderProducer reader = FileReaderProducer.createStarted(
                 path, 32 * 1024, 16);
-             counter
+             FileLineCounter counter = FileLineCounter.createStarted(16)
         ) {
-            counter.start();
-
+            List<FileChunk> buffer = new ArrayList<>();
             while (true) {
                 boolean hasNext = reader.poll(buffer);
                 for (int i = 0; i < buffer.size();) {
@@ -59,9 +54,9 @@ public class Main {
                     break;
                 }
             }
-        }
 
-        IO.println("total: " + counter.byteCount() + " | " + counter.lineCount());
+            IO.println("total: " + counter.byteCount() + " | " + counter.lineCount());
+        }
     }
 
 

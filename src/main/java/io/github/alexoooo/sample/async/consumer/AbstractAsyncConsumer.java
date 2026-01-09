@@ -17,19 +17,16 @@ public abstract class AbstractAsyncConsumer<T>
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSizeLimit;
 
-    private @Nullable T pending;
+    private volatile @Nullable T pending;
     private final BlockingQueue<T> queue;
-//    private final MpscArrayQueue<T> queue;
-//    private final ManyToOneConcurrentArrayQueue<T> queue;
     private final Object workMonitor = new Object();
+    private volatile boolean processingQueue;
 
 
     //-----------------------------------------------------------------------------------------------------------------
     public AbstractAsyncConsumer(int queueSizeLimit, ThreadFactory threadFactory) {
         super(threadFactory);
         queue = new ArrayBlockingQueue<>(queueSizeLimit);
-//        queue = new MpscArrayQueue<>(queueSizeLimit);
-//        queue = new ManyToOneConcurrentArrayQueue<>(queueSizeLimit);
         this.queueSizeLimit = queueSizeLimit;
     }
 
@@ -42,25 +39,25 @@ public abstract class AbstractAsyncConsumer<T>
 
 
     @Override
-    public void awaitZeroPending() throws RuntimeException {
-        checkNotClosedOrFailed();
-        while (pending() > 0) {
+    public void awaitDoneWork() throws RuntimeException {
+        checkRunning();
+        while (pending != null || !queue.isEmpty() || processingQueue) {
             sleepForPolling(workMonitor);
-            checkNotClosedOrFailed();
+            checkRunning();
         }
     }
 
 
     @Override
     public final boolean offer(T item) {
-        checkNotClosedOrFailed();
+        checkRunning();
         return queue.offer(item);
     }
 
 
     @Override
     public final int offer(List<T> items, int startingIndex) {
-        checkNotClosedOrFailed();
+        checkRunning();
 
         int count = 0;
         for (int i = startingIndex, s = items.size(); i < s; i++) {
@@ -110,17 +107,21 @@ public abstract class AbstractAsyncConsumer<T>
             }
         }
         else {
-            T next = queue.poll();
+            T next = queue.peek();
             if (next == null) {
                 sleepForBackoff();
                 return true;
             }
+            processingQueue = true;
+            queue.remove();
             boolean processed = tryProcessNext(next, true);
             if (! processed) {
                 pending = next;
+                processingQueue = false;
                 sleepForBackoff();
                 return true;
             }
+            processingQueue = false;
         }
 
         notifyItemProcessed();
@@ -171,7 +172,10 @@ public abstract class AbstractAsyncConsumer<T>
         }
     }
 
-    private void checkNotClosedOrFailed() {
+    private void checkRunning() {
+        if (! started) {
+            throw new IllegalStateException("Not started");
+        }
         if (closeRequested()) {
             throw new IllegalStateException("Close requested");
         }

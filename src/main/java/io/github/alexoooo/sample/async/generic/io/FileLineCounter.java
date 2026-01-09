@@ -11,6 +11,15 @@ public class FileLineCounter
         extends AbstractAsyncConsumer<FileChunk>
 {
     //-----------------------------------------------------------------------------------------------------------------
+    public static FileLineCounter createStarted(int queueSize) {
+        FileLineCounter instance = new FileLineCounter(
+                queueSize, Thread.ofPlatform().factory());
+        instance.start();
+        return instance;
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     // NB: atomic because they are externally exposed via byteCount()/lineCount() methods
     private final AtomicLong byteCount = new AtomicLong();
     private final AtomicInteger lineCount = new AtomicInteger();
