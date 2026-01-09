@@ -25,6 +25,7 @@ public record AsyncResult<T>(
         return new AsyncResult<>(value, false);
     }
 
+    @SuppressWarnings("NullableProblems")
     public static <T> AsyncResult<T> of(@Nullable T value, boolean endReached) {
         if (value != null) {
             return new AsyncResult<>(value, endReached);
