@@ -96,8 +96,9 @@ public abstract class AbstractAsyncConsumer<T>
 
     @Override
     protected final boolean work() throws Exception {
-        if (pending != null) {
-            boolean processed = tryProcessNext(pending, false);
+        T localPending = pending;
+        if (localPending != null) {
+            boolean processed = tryProcessNext(localPending, false);
             if (processed) {
                 pending = null;
             }
@@ -133,8 +134,9 @@ public abstract class AbstractAsyncConsumer<T>
     protected final void closeImpl() throws Exception {
         try {
             if (! failed()) {
-                if (pending != null) {
-                    processNext(pending, true);
+                T localPending = pending;
+                if (localPending != null) {
+                    processNext(localPending, true);
                     pending = null;
                 }
 
