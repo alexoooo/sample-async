@@ -4,6 +4,7 @@ import io.github.alexoooo.sample.async.generic.io.FileChunk;
 import io.github.alexoooo.sample.async.generic.io.FileLineCounter;
 import io.github.alexoooo.sample.async.generic.io.FileReaderPooledProducer;
 import io.github.alexoooo.sample.async.generic.io.FileReaderProducer;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -22,12 +23,13 @@ public class LineCountTest
 {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
+//    @RepeatedTest(100)
     public void countLines() {
         int lineCount = 999;
         Supplier<InputStream> lines = generateLines(lineCount);
         try (FileReaderProducer reader = FileReaderProducer.createStarted(
                 lines, 128, 16);
-             FileLineCounter counter = FileLineCounter.createStarted(16)
+             FileLineCounter counter = FileLineCounter.createStarted(2)
         ) {
             List<FileChunk> buffer = new ArrayList<>();
             while (true) {
@@ -47,12 +49,13 @@ public class LineCountTest
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @Test
+    @RepeatedTest(10)
     public void countBytesPooled() {
         int byteCount = 999;
         Supplier<InputStream> lines = generateBytes(byteCount);
         try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
-                lines, 32, 16)
+                lines, 32, 16);
+             FileLineCounter counter = FileLineCounter.createStarted(2)
         ) {
             long total = 0;
             while (true) {
@@ -60,6 +63,9 @@ public class LineCountTest
 
                 FileChunk value = result.value();
                 if (value != null) {
+                    counter.put(value);
+                    counter.awaitDoneWork();
+
                     total += value.length;
                     reader.release(value);
                 }
@@ -69,6 +75,8 @@ public class LineCountTest
                 }
             }
 
+            counter.awaitDoneWork();
+            assertEquals(byteCount, counter.byteCount());
             assertEquals(byteCount, total);
         }
     }
