@@ -35,10 +35,6 @@ public class ControllableEmptyProducer
         initLatch.countDown();
     }
 
-//    public void doCompute() {
-//        computeLatch.countDown();
-//    }
-
     public void doCloseAsync() {
         closeAsyncStartLatch.countDown();
     }
@@ -69,6 +65,7 @@ public class ControllableEmptyProducer
             }
         }
     }
+
 
     //-----------------------------------------------------------------------------------------------------------------
     @Override

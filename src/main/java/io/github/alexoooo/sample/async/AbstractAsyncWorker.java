@@ -87,6 +87,7 @@ public abstract class AbstractAsyncWorker
             initiated.await();
         }
         catch (InterruptedException e) {
+            offerFirstException(e);
             throw new IllegalStateException(e);
         }
 
