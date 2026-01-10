@@ -4,6 +4,7 @@ import io.github.alexoooo.sample.async.generic.io.FileChunk;
 import io.github.alexoooo.sample.async.generic.io.FileLineCounter;
 import io.github.alexoooo.sample.async.generic.io.FileReaderPooledProducer;
 import io.github.alexoooo.sample.async.generic.io.FileReaderProducer;
+import org.jetbrains.lincheck.Lincheck;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +28,9 @@ public class LineCountTest
     public void countLines() {
         int lineCount = 999;
         Supplier<InputStream> lines = generateLines(lineCount);
+        int chunks = 0;
+        int bytes = 0;
+        int manualLines = 1;
         try (FileReaderProducer reader = FileReaderProducer.createStarted(
                 lines, 128, 16);
              FileLineCounter counter = FileLineCounter.createStarted(2)
@@ -34,38 +38,68 @@ public class LineCountTest
             List<FileChunk> buffer = new ArrayList<>();
             while (true) {
                 boolean hasNext = reader.poll(buffer);
+                chunks += buffer.size();
+                for (FileChunk fileChunk : buffer) {
+                    bytes += fileChunk.length;
+                    for (int i = 0, s = fileChunk.length; i < s; i++) {
+                        if (fileChunk.bytes[i] == '\n') {
+                            manualLines++;
+                        }
+                    }
+                }
                 for (int i = 0; i < buffer.size();) {
                     i += counter.offer(buffer, i);
                 }
                 buffer.clear();
                 if (! hasNext) {
+//                    if (chunks != 12) {
+//                        IO.println("foo");
+//                    }
                     break;
                 }
             }
             counter.awaitDoneWork();
             assertEquals(lineCount, counter.lineCount());
+            assertEquals(lineCount, manualLines);
+            assertEquals(chunks, reader.getTotalChunks());
+            assertEquals(bytes, reader.getTotalRead());
+        }
+    }
+
+
+//    @Test
+    @RepeatedTest(1_000)
+    public void countLinesRepeat() {
+        for (int i = 0; i < 1_000; i++) {
+            countLines();
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @RepeatedTest(10)
+    @Test
+//    @RepeatedTest(10)
     public void countBytesPooled() {
         int byteCount = 999;
         Supplier<InputStream> lines = generateBytes(byteCount);
-        try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
+        long total = 0;
+        int chunks = 0;
+
+        FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
                 lines, 32, 16);
-             FileLineCounter counter = FileLineCounter.createStarted(2)
+        try (reader
+//        try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
+//                lines, 32, 16);
+//             FileLineCounter counter = FileLineCounter.createStarted(32)
         ) {
-            long total = 0;
             while (true) {
                 AsyncResult<FileChunk> result = reader.poll();
 
                 FileChunk value = result.value();
                 if (value != null) {
-                    counter.put(value);
-                    counter.awaitDoneWork();
-
+//                    counter.put(value);
+//                    counter.awaitDoneWork();
+                    chunks++;
                     total += value.length;
                     reader.release(value);
                 }
@@ -74,12 +108,20 @@ public class LineCountTest
                     break;
                 }
             }
-
-            counter.awaitDoneWork();
-            assertEquals(byteCount, counter.byteCount());
-            assertEquals(byteCount, total);
         }
+//            counter.awaitDoneWork();
+        assertEquals(chunks, reader.getTotalChunks());
+        assertEquals(byteCount, reader.getTotalRead());
+        assertEquals(byteCount, total);
+//            assertEquals(byteCount, counter.byteCount());
     }
+
+
+//    @Test
+////    @RepeatedTest(10)
+//    public void countBytesPooledLincheck() {
+//        Lincheck.runConcurrentTest(this::countBytesPooled);
+//    }
 
 
     //-----------------------------------------------------------------------------------------------------------------

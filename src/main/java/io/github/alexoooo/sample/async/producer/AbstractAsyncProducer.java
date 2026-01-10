@@ -42,6 +42,8 @@ public abstract class AbstractAsyncProducer<T>
     private boolean endReached = false;
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
+    private long totalAdded = 0;
+    private long totalRemoved = 0;
 
     private final AtomicReference<IteratorNext<T>> iteratorNext = new AtomicReference<>(IteratorNext.didNotCheck());
 
@@ -55,6 +57,21 @@ public abstract class AbstractAsyncProducer<T>
         super(threadFactory);
         queue = new ArrayBlockingQueue<>(queueSizeLimit);
         this.queueSizeLimit = queueSizeLimit;
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private void notifyEventLoop() {
+        synchronized (eventLoopMonitor) {
+            eventLoopMonitor.notify();
+        }
+    }
+
+
+    private void notifyHasNext() {
+        synchronized (hasNextMonitor) {
+            hasNextMonitor.notify();
+        }
     }
 
 
@@ -88,9 +105,8 @@ public abstract class AbstractAsyncProducer<T>
                     ? AsyncResult.endReachedWithoutValue()
                     : AsyncResult.notReady();
         }
-        synchronized (eventLoopMonitor) {
-            eventLoopMonitor.notify();
-        }
+        totalRemoved++;
+        notifyEventLoop();
         return AsyncResult.of(next);
     }
 
@@ -106,13 +122,19 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         int drained = queue.drainTo(consumer);
+        totalRemoved += drained;
 
         if (drained == 0) {
-            return ! closed();
+            boolean hasNext = !closed();
+            if (! hasNext) {
+                int drainedAfterClosed = queue.drainTo(consumer);
+                if (drainedAfterClosed != 0) {
+                    notifyEventLoop();
+                }
+            }
+            return hasNext;
         }
-        synchronized (eventLoopMonitor) {
-            eventLoopMonitor.notify();
-        }
+        notifyEventLoop();
         return true;
     }
 
@@ -148,32 +170,51 @@ public abstract class AbstractAsyncProducer<T>
             sleepForPolling(eventLoopMonitor);
             return true;
         }
+//        else if (size == 0 && endReached) {
+//            return false;
+//        }
 
-        boolean added = false;
+        int added = 0;
         for (int i = 0; i < remainingCapacity; i++) {
             T nextOrNull = tryComputeNext();
             if (nextOrNull != null) {
-                queue.add(nextOrNull);
-                added = true;
+                boolean addedToQueue = queue.add(nextOrNull);
+                if (!addedToQueue) {
+                    throw new IllegalStateException();
+                }
+
+                totalAdded++;
+                added++;
                 if (endReached) {
-                    break;
+                    notifyHasNext();
+//                    if (totalAdded != 12) {
+//                        IO.println("foo");
+//                    }
+                    return false;
                 }
             }
             else {
+                if (endReached) {
+                    if (added > 0) {
+                        notifyHasNext();
+                    }
+//                    if (totalAdded != 12) {
+//                        IO.println("foo");
+//                    }
+                    return false;
+                }
                 break;
             }
         }
 
-        if (added) {
-            synchronized (hasNextMonitor) {
-                hasNextMonitor.notify();
-            }
+        if (added > 0) {
+            notifyHasNext();
         }
         else {
             sleepForBackoff();
         }
 
-        return ! endReached;
+        return true;
     }
 
 

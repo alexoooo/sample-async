@@ -35,6 +35,8 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
     private final int chunkSize;
 
     private @Nullable InputStream inputStream;
+    private long totalChunks = 0;
+    private long totalRead = 0;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -43,6 +45,15 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
         super(queueSize, threadFactory);
         this.reader = reader;
         this.chunkSize = chunkSize;
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    public long getTotalChunks() {
+        return totalChunks;
+    }
+    public long getTotalRead() {
+        return totalRead;
     }
 
 
@@ -69,6 +80,8 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
             return endReached();
         }
         chunk.length = read;
+        totalChunks++;
+        totalRead += read;
         return chunk;
     }
 

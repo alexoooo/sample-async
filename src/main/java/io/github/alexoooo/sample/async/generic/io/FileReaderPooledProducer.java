@@ -5,7 +5,6 @@ import io.github.alexoooo.sample.async.producer.AbstractPooledAsyncProducer;
 import org.jspecify.annotations.Nullable;
 
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
@@ -34,6 +33,8 @@ public class FileReaderPooledProducer
     private final int chunkSize;
 
     private @Nullable InputStream inputStream;
+    private long totalChunks = 0;
+    private long totalRead = 0;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -42,6 +43,15 @@ public class FileReaderPooledProducer
         super(queueSize, threadFactory);
         this.reader = reader;
         this.chunkSize = chunkSize;
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    public long getTotalChunks() {
+        return totalChunks;
+    }
+    public long getTotalRead() {
+        return totalRead;
     }
 
 
@@ -66,12 +76,19 @@ public class FileReaderPooledProducer
 
     @Override
     protected boolean tryComputeNext(FileChunk chunk, boolean initialAttempt) throws Exception {
+        if (!initialAttempt) {
+            throw new UnsupportedOperationException("unexpected");
+        }
+
         int read = Objects.requireNonNull(inputStream).read(chunk.bytes);
         if (read == -1) {
+            chunk.length = 0;
             endReached();
             return false;
         }
         chunk.length = read;
+        totalChunks++;
+        totalRead += read;
         return chunk.length > 0;
     }
 

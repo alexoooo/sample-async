@@ -28,7 +28,7 @@ public interface AsyncProducer<T>
 
     /**
      * @return retrieve but do not remove already available value,
-     *  if peek result is available then next call to poll will produce exactly the same result
+     *      if peek result is available then next call to poll will produce exactly the same result
      * @throws RuntimeException to report asynchronous background failure
      */
     AsyncResult<T> peek() throws RuntimeException;

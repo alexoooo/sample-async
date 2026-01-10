@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
 
 
@@ -14,7 +15,7 @@ public abstract class AbstractPooledAsyncProducer<T>
         implements PooledAsyncProducer<T>
 {
     //-----------------------------------------------------------------------------------------------------------------
-    private final Queue<T> pool;
+    private final BlockingQueue<T> pool;
     private @Nullable T pending;
 
 

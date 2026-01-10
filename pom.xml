@@ -20,6 +20,7 @@
         <jspecify.version>1.0.0</jspecify.version>
 
         <junit.version>6.0.2</junit.version>
+        <!--<lincheck.version>3.4</lincheck.version>-->
 
         <maven-dependency-plugin.version>3.9.0</maven-dependency-plugin.version>
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
@@ -66,6 +67,12 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--<dependency>
+            <groupId>org.jetbrains.lincheck</groupId>
+            <artifactId>lincheck</artifactId>
+            <version>${lincheck.version}</version>
+            <scope>test</scope>
+        </dependency>-->
     </dependencies>
 
 

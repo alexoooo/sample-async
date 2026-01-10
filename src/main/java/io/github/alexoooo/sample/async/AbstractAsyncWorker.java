@@ -35,7 +35,9 @@ public abstract class AbstractAsyncWorker
     private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
     protected final AtomicReference<@Nullable Throwable> initException = new AtomicReference<>();
     protected final AtomicReference<@Nullable Throwable> firstException = new AtomicReference<>();
-    private final AtomicReference<Boolean> skipBackoff = new AtomicReference<>(false);
+    protected final AtomicBoolean exceptionThrown = new AtomicBoolean();
+//    private final AtomicReference<Boolean> skipBackoff = new AtomicReference<>(false);
+    private final AtomicBoolean skipBackoff = new AtomicBoolean();
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -50,6 +52,7 @@ public abstract class AbstractAsyncWorker
         if (exception == null) {
             return;
         }
+        exceptionThrown.set(true);
         throw new RuntimeException(exception);
     }
 
@@ -138,7 +141,7 @@ public abstract class AbstractAsyncWorker
         try {
             while (! closeRequested() && ! failed()) {
                 boolean hasMoreWork = work();
-                if (! hasMoreWork) {
+                if (!hasMoreWork) {
                     workFinished = true;
                     break;
                 }
@@ -205,7 +208,9 @@ public abstract class AbstractAsyncWorker
             throw new IllegalStateException(e);
         }
 
-        throwExecutionExceptionIfRequired();
+        if (!exceptionThrown.get()) {
+            throwExecutionExceptionIfRequired();
+        }
     }
 
 
