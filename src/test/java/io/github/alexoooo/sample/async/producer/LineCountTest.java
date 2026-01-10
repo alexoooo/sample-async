@@ -4,7 +4,6 @@ import io.github.alexoooo.sample.async.generic.io.FileChunk;
 import io.github.alexoooo.sample.async.generic.io.FileLineCounter;
 import io.github.alexoooo.sample.async.generic.io.FileReaderPooledProducer;
 import io.github.alexoooo.sample.async.generic.io.FileReaderProducer;
-import org.jetbrains.lincheck.Lincheck;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +23,6 @@ public class LineCountTest
 {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
-//    @RepeatedTest(100)
     public void countLines() {
         int lineCount = 999;
         Supplier<InputStream> lines = generateLines(lineCount);
@@ -52,9 +50,6 @@ public class LineCountTest
                 }
                 buffer.clear();
                 if (! hasNext) {
-//                    if (chunks != 12) {
-//                        IO.println("foo");
-//                    }
                     break;
                 }
             }
@@ -67,38 +62,33 @@ public class LineCountTest
     }
 
 
-//    @Test
-    @RepeatedTest(1_000)
-    public void countLinesRepeat() {
-        for (int i = 0; i < 1_000; i++) {
-            countLines();
-        }
-    }
+//    @RepeatedTest(1_000)
+//    public void countLinesRepeat() {
+//        for (int i = 0; i < 1_000; i++) {
+//            countLines();
+//        }
+//    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Test
-//    @RepeatedTest(10)
     public void countBytesPooled() {
         int byteCount = 999;
         Supplier<InputStream> lines = generateBytes(byteCount);
         long total = 0;
         int chunks = 0;
 
-        FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
+        try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
                 lines, 32, 16);
-        try (reader
-//        try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
-//                lines, 32, 16);
-//             FileLineCounter counter = FileLineCounter.createStarted(32)
+             FileLineCounter counter = FileLineCounter.createStarted(32)
         ) {
             while (true) {
                 AsyncResult<FileChunk> result = reader.poll();
 
                 FileChunk value = result.value();
                 if (value != null) {
-//                    counter.put(value);
-//                    counter.awaitDoneWork();
+                    counter.put(value);
+                    counter.awaitDoneWork();
                     chunks++;
                     total += value.length;
                     reader.release(value);
@@ -108,19 +98,20 @@ public class LineCountTest
                     break;
                 }
             }
+            counter.awaitDoneWork();
+            assertEquals(chunks, reader.getTotalChunks());
+            assertEquals(byteCount, reader.getTotalRead());
+            assertEquals(byteCount, total);
         }
-//            counter.awaitDoneWork();
-        assertEquals(chunks, reader.getTotalChunks());
-        assertEquals(byteCount, reader.getTotalRead());
-        assertEquals(byteCount, total);
 //            assertEquals(byteCount, counter.byteCount());
     }
 
 
-//    @Test
-////    @RepeatedTest(10)
-//    public void countBytesPooledLincheck() {
-//        Lincheck.runConcurrentTest(this::countBytesPooled);
+//    @RepeatedTest(1_000)
+//    public void countBytesPooledRepeat() {
+//        for (int i = 0; i < 1_000; i++) {
+//            countBytesPooled();
+//        }
 //    }
 
 

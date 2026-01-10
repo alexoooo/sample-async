@@ -42,8 +42,8 @@ public abstract class AbstractAsyncProducer<T>
     private boolean endReached = false;
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
-    private long totalAdded = 0;
-    private long totalRemoved = 0;
+//    private long totalAdded = 0;
+//    private long totalRemoved = 0;
 
     private final AtomicReference<IteratorNext<T>> iteratorNext = new AtomicReference<>(IteratorNext.didNotCheck());
 
@@ -99,13 +99,17 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         T next = queue.poll();
-
         if (next == null) {
-            return closed()
-                    ? AsyncResult.endReachedWithoutValue()
-                    : AsyncResult.notReady();
+            if (closed()) {
+                T nextAfterClosed = queue.poll();
+                if (nextAfterClosed != null) {
+                    return AsyncResult.of(nextAfterClosed, queue.isEmpty());
+                }
+                return AsyncResult.endReachedWithoutValue();
+            }
+            return AsyncResult.notReady();
         }
-        totalRemoved++;
+//        totalRemoved++;
         notifyEventLoop();
         return AsyncResult.of(next);
     }
@@ -122,7 +126,7 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         int drained = queue.drainTo(consumer);
-        totalRemoved += drained;
+//        totalRemoved += drained;
 
         if (drained == 0) {
             boolean hasNext = !closed();
@@ -150,9 +154,12 @@ public abstract class AbstractAsyncProducer<T>
         }
 
         T next = queue.peek();
-
         if (next == null) {
             if (closed()) {
+                T nextAfterClosed = queue.peek();
+                if (nextAfterClosed != null) {
+                    return AsyncResult.of(nextAfterClosed);
+                }
                 return AsyncResult.endReachedWithoutValue();
             }
             return AsyncResult.notReady();
@@ -170,9 +177,6 @@ public abstract class AbstractAsyncProducer<T>
             sleepForPolling(eventLoopMonitor);
             return true;
         }
-//        else if (size == 0 && endReached) {
-//            return false;
-//        }
 
         int added = 0;
         for (int i = 0; i < remainingCapacity; i++) {
@@ -183,13 +187,10 @@ public abstract class AbstractAsyncProducer<T>
                     throw new IllegalStateException();
                 }
 
-                totalAdded++;
+//                totalAdded++;
                 added++;
                 if (endReached) {
                     notifyHasNext();
-//                    if (totalAdded != 12) {
-//                        IO.println("foo");
-//                    }
                     return false;
                 }
             }
@@ -198,9 +199,6 @@ public abstract class AbstractAsyncProducer<T>
                     if (added > 0) {
                         notifyHasNext();
                     }
-//                    if (totalAdded != 12) {
-//                        IO.println("foo");
-//                    }
                     return false;
                 }
                 break;
