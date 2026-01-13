@@ -1,9 +1,10 @@
-package io.github.alexoooo.sample.async.producer;
+package io.github.alexoooo.sample.async;
 
 
-import io.github.alexoooo.sample.async.AsyncWorker;
 import io.github.alexoooo.sample.async.generic.QueueProducer;
-import io.github.alexoooo.sample.async.producer.support.RepeatingProducer;
+import io.github.alexoooo.sample.async.producer.AsyncProducer;
+import io.github.alexoooo.sample.async.producer.AsyncResult;
+import io.github.alexoooo.sample.async.support.RepeatingProducer;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

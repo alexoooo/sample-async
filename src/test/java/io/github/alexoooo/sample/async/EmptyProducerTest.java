@@ -1,8 +1,8 @@
-package io.github.alexoooo.sample.async.producer;
+package io.github.alexoooo.sample.async;
 
-import io.github.alexoooo.sample.async.AsyncState;
-import io.github.alexoooo.sample.async.producer.support.AsyncTestUtils;
-import io.github.alexoooo.sample.async.producer.support.ControllableEmptyProducer;
+import io.github.alexoooo.sample.async.producer.AsyncResult;
+import io.github.alexoooo.sample.async.support.AsyncTestUtils;
+import io.github.alexoooo.sample.async.support.ControllableEmptyProducer;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 

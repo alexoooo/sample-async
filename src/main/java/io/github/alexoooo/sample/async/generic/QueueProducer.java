@@ -51,7 +51,10 @@ public class QueueProducer<T> extends AbstractAsyncProducer<T> {
     protected @Nullable T tryComputeNext() {
         T value = queue.poll();
         if (value == null && ended.get()) {
-            return endReached();
+            T valueAfterEnded = queue.poll();
+            return valueAfterEnded != null
+                    ? valueAfterEnded
+                    : endReached();
         }
         return value;
     }

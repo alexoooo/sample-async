@@ -1,10 +1,10 @@
-package io.github.alexoooo.sample.async.producer;
+package io.github.alexoooo.sample.async;
 
 import io.github.alexoooo.sample.async.generic.io.FileChunk;
 import io.github.alexoooo.sample.async.generic.io.FileLineCounter;
 import io.github.alexoooo.sample.async.generic.io.FileReaderPooledProducer;
 import io.github.alexoooo.sample.async.generic.io.FileReaderProducer;
-import org.junit.jupiter.api.RepeatedTest;
+import io.github.alexoooo.sample.async.producer.AsyncResult;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;

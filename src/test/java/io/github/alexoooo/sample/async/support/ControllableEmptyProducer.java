@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async.producer.support;
+package io.github.alexoooo.sample.async.support;
 
 import io.github.alexoooo.sample.async.producer.AbstractAsyncProducer;
 import org.jspecify.annotations.Nullable;

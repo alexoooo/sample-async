@@ -1,9 +1,8 @@
-package io.github.alexoooo.sample.async.producer;
+package io.github.alexoooo.sample.async;
 
 
-import io.github.alexoooo.sample.async.AsyncState;
-import io.github.alexoooo.sample.async.producer.support.AsyncTestUtils;
-import io.github.alexoooo.sample.async.producer.support.ControllableFailingWorker;
+import io.github.alexoooo.sample.async.support.AsyncTestUtils;
+import io.github.alexoooo.sample.async.support.ControllableFailingWorker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

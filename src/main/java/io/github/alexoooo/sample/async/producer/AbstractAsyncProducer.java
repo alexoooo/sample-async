@@ -130,7 +130,7 @@ public abstract class AbstractAsyncProducer<T>
 
         if (drained == 0) {
             boolean hasNext = !closed();
-            if (! hasNext) {
+            if (!hasNext) {
                 int drainedAfterClosed = queue.drainTo(consumer);
                 if (drainedAfterClosed != 0) {
                     notifyEventLoop();

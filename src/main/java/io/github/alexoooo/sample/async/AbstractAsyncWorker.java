@@ -168,8 +168,8 @@ public abstract class AbstractAsyncWorker
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @Override
-    public final boolean closeAsync() {
+//    @Override
+    private boolean closeAsync() {
         if (! started) {
             return false;
         }
@@ -194,7 +194,10 @@ public abstract class AbstractAsyncWorker
             return;
         }
 
-        closeAsync();
+        boolean newlyClosing = closeAsync();
+        if (!newlyClosing) {
+            return;
+        }
 
         Thread thread = threadHolder.getAndSet(null);
 
@@ -271,7 +274,14 @@ public abstract class AbstractAsyncWorker
 
 
     /**
-     * Invoked from an unpredictable thread, can be used for interrupt handling
+     * If closing is done in stages, initiate the first asynchronous closing sequence (executes on an unknown thread,
+     *      to be followed by a synchronous close method invocation).
+     * If there is no concept of closing stages then this method doesn't need to be implemented,
+     *      if implemented it will be automatically invoked by the close method.
+     * One example of where this is useful is if the main thread is blocked and needs to be interrupted to close,
+     *     then the interruption can be handled via closeAsync.
+     * Idempotent (can be called multiple times).
+     * Doesn't throw anything, even if an exception was previously thrown in the background.
      */
     abstract protected void closeAsyncImpl() throws Exception;
 

@@ -1,4 +1,4 @@
 @NullMarked
-package io.github.alexoooo.sample.async.producer;
+package io.github.alexoooo.sample.async.support;
 
 import org.jspecify.annotations.NullMarked;

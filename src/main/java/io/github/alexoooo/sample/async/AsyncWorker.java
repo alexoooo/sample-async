@@ -23,21 +23,12 @@ public interface AsyncWorker
 
 
     /**
-     * If closing is done in stages, initiate the first asynchronous closing sequence
-     *      (to be followed by the synchronous close)
-     * Idempotent (can be called multiple times).
-     * Doesn't throw anything, even if an exception was previously thrown in the background.
-     * @return true if closing was newly requested
-     */
-    @SuppressWarnings("UnusedReturnValue")
-    boolean closeAsync();
-
-
-    /**
-     * Attempts to close (even if previously failed).
+     * Attempts to close if started (even if previously failed).
+     * First calls closeAsync, and then waits for closing logic to execute on work thread.
      * Idempotent (can be called multiple times), on subsequent calls background/closing exceptions will be thrown.
      * Invoked automatically when all work is done.
      * @throws RuntimeException if closing failed or to report exception previously thrown in background
+     *      which was not already reported (already reported failures won't be re-reported to avoid circular cause chain)
      */
     @Override
     void close() throws RuntimeException;
@@ -57,7 +48,7 @@ public interface AsyncWorker
     /**
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      * Results could be stale due to race condition (e.g. work finished right after returning false).
-     * @return true if all work was successfully completed (without exception/closing).
+     * @return true if all work was successfully completed (without exception or external closing).
      */
     boolean workFinished();
 
