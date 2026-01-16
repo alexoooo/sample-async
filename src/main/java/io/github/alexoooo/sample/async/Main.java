@@ -54,6 +54,7 @@ public class Main {
                     break;
                 }
             }
+            counter.awaitDoneWork();
 
             IO.println("total: " + counter.byteCount() + " | " + counter.lineCount());
         }
