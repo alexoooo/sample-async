@@ -50,7 +50,7 @@ public interface AsyncWorker
      * Results could be stale due to race condition (e.g. work finished right after returning false).
      * @return true if all work was successfully completed (without exception or external closing).
      */
-    boolean workFinished();
+    boolean isWorkFinished();
 
 
     /**

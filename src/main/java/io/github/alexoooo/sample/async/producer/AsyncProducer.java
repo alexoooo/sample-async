@@ -1,7 +1,6 @@
 package io.github.alexoooo.sample.async.producer;
 
 
-import io.github.alexoooo.sample.async.AsyncState;
 import io.github.alexoooo.sample.async.AsyncWorker;
 
 import java.util.Collection;

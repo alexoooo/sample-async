@@ -223,7 +223,7 @@ public abstract class AbstractAsyncWorker
     }
 
     @Override
-    public final boolean workFinished() {
+    public final boolean isWorkFinished() {
         return workFinished;
     }
 
