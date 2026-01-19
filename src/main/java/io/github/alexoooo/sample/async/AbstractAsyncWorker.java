@@ -36,7 +36,6 @@ public abstract class AbstractAsyncWorker
     protected final AtomicReference<@Nullable Throwable> initException = new AtomicReference<>();
     protected final AtomicReference<@Nullable Throwable> firstException = new AtomicReference<>();
     protected final AtomicBoolean exceptionThrown = new AtomicBoolean();
-//    private final AtomicReference<Boolean> skipBackoff = new AtomicReference<>(false);
     private final AtomicBoolean skipBackoff = new AtomicBoolean();
 
 

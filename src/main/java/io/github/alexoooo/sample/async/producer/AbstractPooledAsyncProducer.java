@@ -4,7 +4,6 @@ package io.github.alexoooo.sample.async.producer;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
-import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;

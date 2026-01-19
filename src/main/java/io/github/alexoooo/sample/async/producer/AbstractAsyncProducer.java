@@ -2,7 +2,6 @@ package io.github.alexoooo.sample.async.producer;
 
 
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
-import io.github.alexoooo.sample.async.AsyncState;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
