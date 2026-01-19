@@ -50,7 +50,7 @@ public class Main {
                     i += counter.offer(buffer, i);
                 }
                 buffer.clear();
-                if (! hasNext) {
+                if (!hasNext) {
                     break;
                 }
             }

@@ -77,7 +77,7 @@ public abstract class AbstractAsyncConsumer<T>
 
     @Override
     public final void put(T item) {
-        while (! closeRequested()) {
+        while (!closeRequested()) {
             throwExecutionExceptionIfRequired();
 
             boolean added = queue.offer(item);
@@ -116,7 +116,7 @@ public abstract class AbstractAsyncConsumer<T>
             processingQueue = true;
             queue.remove();
             boolean processed = tryProcessNext(next, true);
-            if (! processed) {
+            if (!processed) {
                 pending = next;
                 processingQueue = false;
                 sleepForBackoff();
@@ -133,7 +133,7 @@ public abstract class AbstractAsyncConsumer<T>
     @Override
     protected final void closeImpl() throws Exception {
         try {
-            if (! failed()) {
+            if (!failed()) {
                 T localPending = pending;
                 if (localPending != null) {
                     processNext(localPending, true);
@@ -155,7 +155,7 @@ public abstract class AbstractAsyncConsumer<T>
     }
 
     private void processNext(T item, boolean pending) throws Exception {
-        boolean initialAttempt = ! pending;
+        boolean initialAttempt = !pending;
         while (true) {
             boolean processed = tryProcessNext(item, initialAttempt);
             if (processed) {
@@ -175,7 +175,7 @@ public abstract class AbstractAsyncConsumer<T>
     }
 
     private void checkRunning() {
-        if (! started) {
+        if (!started) {
             throw new IllegalStateException("Not started");
         }
         if (closeRequested()) {

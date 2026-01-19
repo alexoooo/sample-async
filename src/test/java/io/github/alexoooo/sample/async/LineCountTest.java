@@ -16,7 +16,7 @@ import java.util.SplittableRandom;
 import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class LineCountTest
@@ -24,18 +24,25 @@ public class LineCountTest
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     public void countLines() {
-        int lineCount = 999;
+        RandomGenerator random = new SplittableRandom();
+        int lineCount = random.nextInt(1, 100_000);
         Supplier<InputStream> lines = generateLines(lineCount);
         int chunks = 0;
         int bytes = 0;
         int manualLines = 1;
         try (FileReaderProducer reader = FileReaderProducer.createStarted(
-                lines, 128, 16);
-             FileLineCounter counter = FileLineCounter.createStarted(2)
+                lines, random.nextInt(1, 1000), random.nextInt(1, 16));
+             FileLineCounter counter = FileLineCounter.createStarted(random.nextInt(1, 32))
         ) {
+            boolean endReached = false;
             List<FileChunk> buffer = new ArrayList<>();
             while (true) {
                 boolean hasNext = reader.poll(buffer);
+                if (endReached && hasNext) {
+                    AsyncResult<FileChunk> following = reader.poll();
+                    assertNull(following.value());
+                }
+
                 chunks += buffer.size();
                 for (FileChunk fileChunk : buffer) {
                     bytes += fileChunk.length;
@@ -49,8 +56,12 @@ public class LineCountTest
                     i += counter.offer(buffer, i);
                 }
                 buffer.clear();
-                if (! hasNext) {
+                if (!hasNext) {
+                    assertTrue(reader.isDone());
                     break;
+                }
+                if (reader.isDone()) {
+                    endReached = true;
                 }
             }
             counter.awaitDoneWork();
@@ -73,17 +84,23 @@ public class LineCountTest
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     public void countBytesPooled() {
-        int byteCount = 999;
+        RandomGenerator random = new SplittableRandom();
+        int byteCount = random.nextInt(1, 50_000);
         Supplier<InputStream> lines = generateBytes(byteCount);
         long total = 0;
         int chunks = 0;
 
+        boolean endReached = false;
         try (FileReaderPooledProducer reader = FileReaderPooledProducer.createStarted(
-                lines, 32, 16);
-             FileLineCounter counter = FileLineCounter.createStarted(32)
+                lines, random.nextInt(1, 1000), random.nextInt(1, 16));
+             FileLineCounter counter = FileLineCounter.createStarted(random.nextInt(1, 64))
         ) {
             while (true) {
                 AsyncResult<FileChunk> result = reader.poll();
+                if (endReached) {
+                    assertTrue(result.endReached());
+                    assertNull(result.value());
+                }
 
                 FileChunk value = result.value();
                 if (value != null) {
@@ -95,7 +112,11 @@ public class LineCountTest
                 }
 
                 if (result.endReached()) {
+                    assertTrue(reader.isDone());
                     break;
+                }
+                if (reader.isDone()) {
+                    endReached = true;
                 }
             }
             counter.awaitDoneWork();

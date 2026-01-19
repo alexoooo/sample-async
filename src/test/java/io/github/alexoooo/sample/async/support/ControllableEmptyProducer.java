@@ -57,10 +57,11 @@ public class ControllableEmptyProducer
 
     @SuppressWarnings("BusyWait")
     public void awaitCloseRequested() {
-        while (! closeRequested.get()) {
+        while (!closeRequested.get()) {
             try {
                 Thread.sleep(1);
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }

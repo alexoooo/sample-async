@@ -72,8 +72,5 @@ public class RepeatingProducer<T> extends AbstractAsyncProducer<T> {
     protected void init() {}
 
     @Override
-    protected void closeAsyncImpl() {}
-
-    @Override
     protected void closeImpl() {}
 }

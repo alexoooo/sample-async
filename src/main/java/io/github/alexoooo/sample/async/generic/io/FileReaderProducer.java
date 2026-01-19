@@ -87,9 +87,6 @@ public class FileReaderProducer extends AbstractAsyncProducer<FileChunk> {
 
 
     @Override
-    protected void closeAsyncImpl() {}
-
-    @Override
     protected void closeImpl() throws Exception {
         inputStream().close();
     }

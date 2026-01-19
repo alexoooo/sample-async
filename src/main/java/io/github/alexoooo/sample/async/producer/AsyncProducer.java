@@ -18,12 +18,12 @@ public interface AsyncProducer<T>
 
 
     /**
-     * @return true if failed, or if finished and successfully and all available results have been consumed
+     * If poll indicates that endReached, then this will return true.
+     * But if isDone returns false, that doesn't mean that there have to be more items to poll,
+     *  i.e. it's possible for isDone to return false and then true without any items being produced.
+     * @return true if failed, or if finished successfully and all available results have been consumed
      */
-    default boolean isDone() {
-        return failure() != null ||
-                state() == AsyncState.Terminal && available() == 0;
-    }
+    boolean isDone();
 
 
     /**

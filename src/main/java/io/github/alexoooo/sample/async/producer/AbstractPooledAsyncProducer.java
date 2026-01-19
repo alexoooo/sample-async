@@ -47,7 +47,7 @@ public abstract class AbstractPooledAsyncProducer<T>
         throwExecutionExceptionIfRequired();
 
         boolean added = pool.add(value);
-        if (! added) {
+        if (!added) {
             throw new IllegalStateException("No space (" + queueSizeLimit + "): " + value);
         }
     }

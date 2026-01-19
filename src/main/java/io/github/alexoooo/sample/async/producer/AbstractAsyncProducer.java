@@ -2,6 +2,7 @@ package io.github.alexoooo.sample.async.producer;
 
 
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
+import io.github.alexoooo.sample.async.AsyncState;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
@@ -39,11 +40,10 @@ public abstract class AbstractAsyncProducer<T>
     //-----------------------------------------------------------------------------------------------------------------
     protected final int queueSizeLimit;
     private final BlockingQueue<T> queue;
-    private boolean endReached = false;
+    private volatile boolean endReached = false;
+    private volatile boolean computingNext = false;
     private final Object hasNextMonitor = new Object();
     private final Object eventLoopMonitor = new Object();
-//    private long totalAdded = 0;
-//    private long totalRemoved = 0;
 
     private final AtomicReference<IteratorNext<T>> iteratorNext = new AtomicReference<>(IteratorNext.didNotCheck());
 
@@ -84,23 +84,37 @@ public abstract class AbstractAsyncProducer<T>
 
 
     @Override
+    public final boolean isDone() {
+        if (failed()) {
+            return true;
+        }
+
+        if (!endReached) {
+            return false;
+        }
+
+        return !computingNext && queue.isEmpty();
+    }
+
+
+    @Override
     public final AsyncResult<T> poll() {
         return poll(false);
     }
 
 
     private AsyncResult<T> poll(boolean forIterator) {
-        if (! started) {
+        if (!started) {
             throw new IllegalStateException("Not started");
         }
         throwExecutionExceptionIfRequired();
-        if (! forIterator && ! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+        if (!forIterator && !iteratorNext.get().equals(IteratorNext.didNotCheck())) {
             throw new IllegalStateException("Iteration in progress");
         }
 
         T next = queue.poll();
         if (next == null) {
-            if (closed()) {
+            if (endReached && !computingNext) {
                 T nextAfterClosed = queue.poll();
                 if (nextAfterClosed != null) {
                     return AsyncResult.of(nextAfterClosed, queue.isEmpty());
@@ -109,7 +123,7 @@ public abstract class AbstractAsyncProducer<T>
             }
             return AsyncResult.notReady();
         }
-//        totalRemoved++;
+
         notifyEventLoop();
         return AsyncResult.of(next);
     }
@@ -117,19 +131,18 @@ public abstract class AbstractAsyncProducer<T>
 
     @Override
     public final boolean poll(Collection<T> consumer) {
-        if (! started) {
+        if (!started) {
             throw new IllegalStateException("Not started");
         }
         throwExecutionExceptionIfRequired();
-        if (! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+        if (!iteratorNext.get().equals(IteratorNext.didNotCheck())) {
             throw new IllegalStateException("Iteration in progress");
         }
 
         int drained = queue.drainTo(consumer);
-//        totalRemoved += drained;
 
         if (drained == 0) {
-            boolean hasNext = !closed();
+            boolean hasNext = !endReached || computingNext;
             if (!hasNext) {
                 int drainedAfterClosed = queue.drainTo(consumer);
                 if (drainedAfterClosed != 0) {
@@ -143,19 +156,20 @@ public abstract class AbstractAsyncProducer<T>
     }
 
 
+    @SuppressWarnings("ConstantValue")
     @Override
     public final AsyncResult<T> peek() throws RuntimeException {
-        if (! started) {
+        if (!started) {
             throw new IllegalStateException("Not started");
         }
         throwExecutionExceptionIfRequired();
-        if (! iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+        if (!iteratorNext.get().equals(IteratorNext.didNotCheck())) {
             throw new IllegalStateException("Iteration in progress");
         }
 
         T next = queue.peek();
         if (next == null) {
-            if (closed()) {
+            if (endReached && !computingNext) {
                 T nextAfterClosed = queue.peek();
                 if (nextAfterClosed != null) {
                     return AsyncResult.of(nextAfterClosed);
@@ -178,6 +192,7 @@ public abstract class AbstractAsyncProducer<T>
             return true;
         }
 
+        computingNext = true;
         int added = 0;
         for (int i = 0; i < remainingCapacity; i++) {
             T nextOrNull = tryComputeNext();
@@ -187,15 +202,16 @@ public abstract class AbstractAsyncProducer<T>
                     throw new IllegalStateException();
                 }
 
-//                totalAdded++;
                 added++;
                 if (endReached) {
+                    computingNext = false;
                     notifyHasNext();
                     return false;
                 }
             }
             else {
                 if (endReached) {
+                    computingNext = false;
                     if (added > 0) {
                         notifyHasNext();
                     }
@@ -204,6 +220,7 @@ public abstract class AbstractAsyncProducer<T>
                 break;
             }
         }
+        computingNext = false;
 
         if (added > 0) {
             notifyHasNext();
@@ -226,7 +243,7 @@ public abstract class AbstractAsyncProducer<T>
 
         while (true) {
             AsyncResult<T> result = poll(true);
-            if (result.value() == null && ! result.endReached()) {
+            if (result.value() == null && !result.endReached()) {
                 sleepForPolling(hasNextMonitor);
                 continue;
             }
@@ -238,7 +255,7 @@ public abstract class AbstractAsyncProducer<T>
                     : IteratorNext.endReached();
 
             boolean set = iteratorNext.compareAndSet(current, check);
-            if (! set) {
+            if (!set) {
                 throw new IllegalStateException("Concurrent modification");
             }
 
@@ -249,7 +266,7 @@ public abstract class AbstractAsyncProducer<T>
 
     @Override
     public final T next() {
-        if (! hasNext()) {
+        if (!hasNext()) {
             throw new IllegalStateException("Next not available");
         }
 
@@ -276,11 +293,14 @@ public abstract class AbstractAsyncProducer<T>
         return null;
     }
 
+
+    /**
+     * Check if endReached was called.
+     */
     @SuppressWarnings("unused")
     protected final boolean isEndReached() {
         return endReached;
     }
-
 
     /**
      * if item is not computed (null return), then the thread will sleep for a bit to avoid pinning

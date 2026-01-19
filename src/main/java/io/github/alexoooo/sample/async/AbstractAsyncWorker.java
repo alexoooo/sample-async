@@ -79,7 +79,7 @@ public abstract class AbstractAsyncWorker
     @Override
     public final void start() {
         boolean unique = startRequested.compareAndSet(false, true);
-        if (! unique) {
+        if (!unique) {
             throw new IllegalStateException("Start already requested");
         }
 
@@ -139,7 +139,7 @@ public abstract class AbstractAsyncWorker
 
     private void loopInThread() {
         try {
-            while (! closeRequested() && ! failed()) {
+            while (!closeRequested() && !failed()) {
                 boolean hasMoreWork = work();
                 if (!hasMoreWork) {
                     workFinished = true;
@@ -168,9 +168,8 @@ public abstract class AbstractAsyncWorker
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    @Override
     private boolean closeAsync() {
-        if (! started) {
+        if (!started) {
             return false;
         }
 
@@ -190,7 +189,7 @@ public abstract class AbstractAsyncWorker
 
     @Override
     public final void close() {
-        if (! started) {
+        if (!started) {
             return;
         }
 
@@ -283,7 +282,7 @@ public abstract class AbstractAsyncWorker
      * Idempotent (can be called multiple times).
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      */
-    abstract protected void closeAsyncImpl() throws Exception;
+    protected void closeAsyncImpl() throws Exception {}
 
 
     /**
