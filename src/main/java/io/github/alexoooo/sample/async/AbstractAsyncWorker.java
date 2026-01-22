@@ -30,6 +30,7 @@ public abstract class AbstractAsyncWorker
     protected volatile boolean workFinished = false;
     protected final AtomicReference<AsyncState> state = new AtomicReference<>(AsyncState.Created);
     protected final AtomicBoolean closeRequested = new AtomicBoolean();
+    protected final AtomicReference<@Nullable RuntimeException> closeRequest = new AtomicReference<>();
     protected final CountDownLatch closed = new CountDownLatch(1);
     private final CountDownLatch initiated = new CountDownLatch(1);
     private final AtomicReference<@Nullable Thread> threadHolder = new AtomicReference<>();
@@ -67,6 +68,10 @@ public abstract class AbstractAsyncWorker
 
     protected final boolean closeRequested() {
         return closeRequested.get();
+    }
+
+    protected final @Nullable Throwable closeRequest() {
+        return closeRequest.get();
     }
 
     protected final boolean closed() {
@@ -174,6 +179,7 @@ public abstract class AbstractAsyncWorker
 
         boolean newRequest = closeRequested.compareAndSet(false, true);
         if (newRequest) {
+            closeRequest.set(new RuntimeException());
             try {
                 closeAsyncImpl();
             }

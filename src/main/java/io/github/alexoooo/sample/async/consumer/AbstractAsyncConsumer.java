@@ -89,7 +89,7 @@ public abstract class AbstractAsyncConsumer<T>
         }
 
         if (closeRequested()) {
-            throw new IllegalStateException("Close requested");
+            throw new IllegalStateException("Close requested", closeRequest());
         }
     }
 
@@ -179,7 +179,7 @@ public abstract class AbstractAsyncConsumer<T>
             throw new IllegalStateException("Not started");
         }
         if (closeRequested()) {
-            throw new IllegalStateException("Close requested");
+            throw new IllegalStateException("Close requested", closeRequest());
         }
         throwExecutionExceptionIfRequired();
     }
