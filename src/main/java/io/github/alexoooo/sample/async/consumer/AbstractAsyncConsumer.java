@@ -78,16 +78,38 @@ public abstract class AbstractAsyncConsumer<T>
     @Override
     public final void put(T item) {
         while (!closeRequested()) {
-            throwExecutionExceptionIfRequired();
-
             boolean added = queue.offer(item);
             if (added) {
                 return;
             }
 
+            throwExecutionExceptionIfRequired();
             sleepForPolling(workMonitor);
         }
 
+        throwExecutionExceptionIfRequired();
+        if (closeRequested()) {
+            throw new IllegalStateException("Close requested", closeRequest());
+        }
+    }
+
+
+    @Override
+    public final void putAll(List<T> items) {
+        int nextIndex = 0;
+        while (nextIndex < items.size() && !closeRequested()) {
+            T item = items.get(nextIndex);
+            boolean added = queue.offer(item);
+            if (added) {
+                nextIndex++;
+            }
+            else {
+                throwExecutionExceptionIfRequired();
+                sleepForPolling(workMonitor);
+            }
+        }
+
+        throwExecutionExceptionIfRequired();
         if (closeRequested()) {
             throw new IllegalStateException("Close requested", closeRequest());
         }
@@ -178,10 +200,10 @@ public abstract class AbstractAsyncConsumer<T>
         if (!started) {
             throw new IllegalStateException("Not started");
         }
+        throwExecutionExceptionIfRequired();
         if (closeRequested()) {
             throw new IllegalStateException("Close requested", closeRequest());
         }
-        throwExecutionExceptionIfRequired();
     }
 
 

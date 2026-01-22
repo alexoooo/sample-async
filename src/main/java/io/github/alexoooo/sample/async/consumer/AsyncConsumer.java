@@ -51,5 +51,8 @@ public interface AsyncConsumer<T>
     void put(T item) throws RuntimeException;
 
 
-//    void put(List<T> items) throws RuntimeException;
+    /**
+     * Equivalent to calling put repeatedly
+     */
+    void putAll(List<T> items) throws RuntimeException;
 }
