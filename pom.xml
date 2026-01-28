@@ -16,6 +16,7 @@
 
         <!--<jctools-core.version>4.0.5</jctools-core.version>-->
         <!--<agrona.version>2.4.0</agrona.version>-->
+        <fastutil.version>8.5.18</fastutil.version> <!-- used for LongCache -->
 
         <jspecify.version>1.0.0</jspecify.version>
 
@@ -55,6 +56,12 @@
             <artifactId>agrona</artifactId>
             <version>${agrona.version}</version>
         </dependency>-->
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil-core</artifactId>
+            <version>${fastutil.version}</version>
+            <scope>compile</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.jspecify</groupId>
