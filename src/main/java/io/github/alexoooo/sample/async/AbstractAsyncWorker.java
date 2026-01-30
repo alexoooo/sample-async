@@ -268,7 +268,9 @@ public abstract class AbstractAsyncWorker
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    abstract protected void init() throws Exception;
+    protected void init() throws Exception {
+        // optionally implemented by subclass
+    }
 
 
     /**
@@ -287,11 +289,15 @@ public abstract class AbstractAsyncWorker
      * Idempotent (can be called multiple times).
      * Doesn't throw anything, even if an exception was previously thrown in the background.
      */
-    protected void closeAsyncImpl() throws Exception {}
+    protected void closeAsyncImpl() throws Exception {
+        // optionally implemented by subclass
+    }
 
 
     /**
      * @throws Exception on logic or I/O failure
      */
-    abstract protected void closeImpl() throws Exception;
+    protected void closeImpl() throws Exception {
+        // optionally implemented by subclass
+    }
 }

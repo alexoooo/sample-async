@@ -214,5 +214,9 @@ public abstract class AbstractAsyncConsumer<T>
      */
     abstract protected boolean tryProcessNext(T item, boolean initialAttempt) throws Exception;
 
-    abstract protected void doClose() throws Exception;
+
+    @SuppressWarnings("RedundantThrows")
+    protected void doClose() throws Exception {
+        // optionally implemented by subclass
+    }
 }

@@ -5,12 +5,17 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.jspecify.annotations.Nullable;
 
+import java.util.AbstractMap;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.LongFunction;
 
 
 public class ConcurrentLongObjectMap<T>
+//    extends AbstractMap<Long, T>
+//    implements ConcurrentMap<Long, T>
 {
     //-----------------------------------------------------------------------------------------------------------------
     private static final int stripes = 1 << 4;
@@ -108,6 +113,45 @@ public class ConcurrentLongObjectMap<T>
     }
 
 
+    @SuppressWarnings("ConstantValue")
+    public @Nullable T putIfAbsent(long key, T value) {
+        int stripe = stripe(key);
+        StampedLock lock = locks[stripe];
+        Long2ObjectMap<T> segment = segments[stripe];
+        long stamp = lock.readLock();
+        try {
+            T existing = segment.get(key);
+            if (existing != null) {
+                return existing;
+            }
+
+            long writeStamp = lock.tryConvertToWriteLock(stamp);
+            if (writeStamp != 0) {
+                stamp = writeStamp;
+            }
+            else {
+                lock.unlockRead(stamp);
+                stamp = 0;
+                writeStamp = lock.writeLock();
+                stamp = writeStamp;
+
+                existing = segment.get(key);
+                if (existing != null) {
+                    return existing;
+                }
+            }
+
+            segment.put(key, value);
+            return null;
+        }
+        finally {
+            if (stamp != 0) {
+                lock.unlock(stamp);
+            }
+        }
+    }
+
+
     public @Nullable T remove(long key) {
         int stripe = stripe(key);
         StampedLock lock = locks[stripe];
@@ -136,6 +180,7 @@ public class ConcurrentLongObjectMap<T>
     }
 
 
+//    @Override
     public int size() {
         int total = 0;
         long[] stamps = new long[stripes];
@@ -161,6 +206,7 @@ public class ConcurrentLongObjectMap<T>
     }
 
 
+//    @Override
     public void clear() {
         long[] stamps = new long[stripes];
 
@@ -181,4 +227,40 @@ public class ConcurrentLongObjectMap<T>
             }
         }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+//    @Override
+//    public @Nullable T get(Object key) {
+//        Long cast = (Long) key;
+//    }
+//
+//
+//    public T put(long key, T value) {
+//    }
+//
+//    @Override
+//    public Set<Entry<Long, T>> entrySet() {
+//        return Set.of();
+//    }
+//
+//    @Override
+//    public T putIfAbsent(Long key, T value) {
+//        return putIfAbsent(key.longValue(), value);
+//    }
+//
+//    @Override
+//    public boolean remove(Object key, Object value) {
+//        return false;
+//    }
+//
+//    @Override
+//    public boolean replace(Long key, T oldValue, T newValue) {
+//        return false;
+//    }
+//
+//    @Override
+//    public T replace(Long key, T value) {
+//        return null;
+//    }
 }

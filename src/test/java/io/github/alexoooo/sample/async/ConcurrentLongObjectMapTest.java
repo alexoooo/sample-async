@@ -136,6 +136,60 @@ public class ConcurrentLongObjectMapTest {
 
 
     @Test
+    void putIfAbsent() {
+        String result1 = map.putIfAbsent(1L, "value1");
+        assertNull(result1);
+        assertEquals("value1", map.get(1L));
+
+        String result2 = map.putIfAbsent(1L, "value2");
+        assertEquals("value1", result2);
+        assertEquals("value1", map.get(1L));
+    }
+
+
+    @Test
+    void putIfAbsentMultipleKeys() {
+        assertNull(map.putIfAbsent(1L, "value1"));
+        assertNull(map.putIfAbsent(2L, "value2"));
+        assertNull(map.putIfAbsent(3L, "value3"));
+
+        assertEquals("value1", map.putIfAbsent(1L, "newvalue1"));
+        assertEquals("value2", map.putIfAbsent(2L, "newvalue2"));
+        assertEquals("value3", map.putIfAbsent(3L, "newvalue3"));
+
+        assertEquals("value1", map.get(1L));
+        assertEquals("value2", map.get(2L));
+        assertEquals("value3", map.get(3L));
+    }
+
+
+    @Test
+    void putIfAbsentAfterRemove() {
+        map.put(1L, "value1");
+        assertEquals("value1", map.get(1L));
+
+        map.remove(1L);
+        assertNull(map.get(1L));
+
+        assertNull(map.putIfAbsent(1L, "value2"));
+        assertEquals("value2", map.get(1L));
+    }
+
+
+    @Test
+    void putVsPutIfAbsent() {
+        map.putIfAbsent(1L, "value1");
+        assertEquals("value1", map.get(1L));
+
+        map.put(1L, "value2");
+        assertEquals("value2", map.get(1L));
+
+        map.putIfAbsent(1L, "value3");
+        assertEquals("value2", map.get(1L));
+    }
+
+
+    @Test
     void multipleStripes() {
         for (long i = 0; i < 1000; i++) {
             map.put(i, "value-" + i);
@@ -431,8 +485,11 @@ public class ConcurrentLongObjectMapTest {
                                 if (op < 5) {
                                     map.get(key);
                                 }
-                                else if (op < 7) {
+                                else if (op < 6) {
                                     map.put(key, "value-" + key);
+                                }
+                                else if (op < 7) {
+                                    map.putIfAbsent(key, "value-" + key);
                                 }
                                 else if (op < 8) {
                                     map.computeIfAbsent(key, k -> "computed-" + k);

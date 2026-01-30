@@ -3,6 +3,7 @@ package io.github.alexoooo.sample.async.producer;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -37,9 +38,6 @@ public abstract class AbstractPooledAsyncProducer<T>
     }
 
 
-    protected abstract void doInit() throws Exception;
-
-
     //-----------------------------------------------------------------------------------------------------------------
     @Override
     public final void release(T value) {
@@ -48,6 +46,21 @@ public abstract class AbstractPooledAsyncProducer<T>
         boolean added = pool.add(value);
         if (!added) {
             throw new IllegalStateException("No space (" + queueSizeLimit + "): " + value);
+        }
+    }
+
+
+    @SuppressWarnings("ForLoopReplaceableByForEach")
+    @Override
+    public final void releaseAll(List<T> values) {
+        throwExecutionExceptionIfRequired();
+
+        for (int i = 0, s = values.size(); i < s; i++) {
+            T value = values.get(i);
+            boolean added = pool.add(value);
+            if (!added) {
+                throw new IllegalStateException("No space (" + queueSizeLimit + "): " + value);
+            }
         }
     }
 
@@ -87,6 +100,12 @@ public abstract class AbstractPooledAsyncProducer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @SuppressWarnings("RedundantThrows")
+    protected void doInit() throws Exception {
+        // optionally implemented by subclass
+    }
+
+
     /**
      * @return new instance of pooled value (will be cleared before every use)
      */
