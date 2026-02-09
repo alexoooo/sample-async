@@ -6,6 +6,7 @@ import io.github.alexoooo.sample.async.support.ControllableEmptyProducer;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,18 +39,28 @@ public class EmptyProducerTest {
         assertFalse(pollWhileRunning.endReached());
 
         producer.produceEndReached();
+        AsyncTestUtils.await(AsyncWorker::isWorkFinished, producer);
+
+        CountDownLatch closedRequested = new CountDownLatch(1);
+        new Thread(() -> {
+            closedRequested.countDown();
+            producer.close();
+        }).start();
+
+        closedRequested.await();
         AsyncTestUtils.awaitState(AsyncState.Closing, producer);
 
         producer.doCloseAsync();
-        producer.awaitCloseAsync();
-        assertEquals(AsyncState.Closing, producer.state());
-
         producer.doClose();
+
+        producer.awaitCloseAsync();
         AsyncTestUtils.awaitState(AsyncState.Terminal, producer);
 
-        AsyncResult<Void> pollAfterClose = producer.poll();
-        assertNull(pollAfterClose.value());
-        assertTrue(pollAfterClose.endReached());
+        try {
+            producer.poll();
+            throw new AssertionFailedError();
+        }
+        catch (IllegalStateException expected) {}
     }
 
 

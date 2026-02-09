@@ -88,6 +88,13 @@ public class FailingWorkerTest {
         worker.doNextWork(false, true);
 
         worker.start();
+        AsyncTestUtils.await(AsyncWorker::isWorkFinished, worker);
+
+        try {
+            worker.close();
+            throw new AssertionError();
+        }
+        catch (Exception expected) {}
 
         AsyncTestUtils.awaitState(AsyncState.Terminal, worker);
         assertNotNull(worker.failure());
@@ -105,6 +112,12 @@ public class FailingWorkerTest {
 
         worker.start();
 
+        try {
+            worker.close();
+            throw new AssertionError();
+        }
+        catch (Exception expected) {}
+
         AsyncTestUtils.awaitState(AsyncState.Terminal, worker);
         assertNotNull(worker.failure());
     }
@@ -120,6 +133,7 @@ public class FailingWorkerTest {
         worker.doNextWork(false, true);
 
         worker.start();
+        worker.close();
 
         AsyncTestUtils.awaitState(AsyncState.Terminal, worker);
         assertNull(worker.failure());

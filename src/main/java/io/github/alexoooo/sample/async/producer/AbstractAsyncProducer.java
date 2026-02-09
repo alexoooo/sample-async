@@ -4,7 +4,10 @@ package io.github.alexoooo.sample.async.producer;
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -66,10 +69,28 @@ public abstract class AbstractAsyncProducer<T>
         }
     }
 
-
     private void notifyHasNext() {
         synchronized (hasNextMonitor) {
             hasNextMonitor.notify();
+        }
+    }
+
+
+    private void checkStarted() {
+        if (!started) {
+            throw new IllegalStateException("Not started");
+        }
+    }
+
+    private void checkNotClosing() {
+        if (closeRequested()) {
+            throw new IllegalStateException("Close requested");
+        }
+    }
+
+    private void checkNotIterating() {
+        if (!iteratorNext.get().equals(IteratorNext.didNotCheck())) {
+            throw new IllegalStateException("Iteration in progress");
         }
     }
 
@@ -103,81 +124,86 @@ public abstract class AbstractAsyncProducer<T>
 
 
     private AsyncResult<T> poll(boolean forIterator) {
-        if (!started) {
-            throw new IllegalStateException("Not started");
-        }
+        checkStarted();
         throwExecutionExceptionIfRequired();
-        if (!forIterator && !iteratorNext.get().equals(IteratorNext.didNotCheck())) {
-            throw new IllegalStateException("Iteration in progress");
+        if (!forIterator) {
+            checkNotIterating();
         }
 
-        T next = queue.poll();
-        if (next == null) {
-            if (endReached && !computingNext) {
-                T nextAfterClosed = queue.poll();
-                if (nextAfterClosed != null) {
-                    return AsyncResult.of(nextAfterClosed, queue.isEmpty());
+        try {
+            T next = queue.poll();
+            if (next == null) {
+                if (endReached && !computingNext) {
+                    T nextAfterClosed = queue.poll();
+                    if (nextAfterClosed != null) {
+                        return AsyncResult.of(nextAfterClosed, queue.isEmpty());
+                    }
+                    return AsyncResult.endReachedWithoutValue();
                 }
-                return AsyncResult.endReachedWithoutValue();
+                return AsyncResult.notReady();
             }
-            return AsyncResult.notReady();
-        }
 
-        notifyEventLoop();
-        return AsyncResult.of(next);
+            notifyEventLoop();
+            return AsyncResult.of(next);
+        }
+        finally {
+            checkNotClosing();
+        }
     }
 
 
     @Override
     public final boolean poll(Collection<T> consumer) {
-        if (!started) {
-            throw new IllegalStateException("Not started");
-        }
+        checkStarted();
         throwExecutionExceptionIfRequired();
-        if (!iteratorNext.get().equals(IteratorNext.didNotCheck())) {
-            throw new IllegalStateException("Iteration in progress");
-        }
+        checkNotIterating();
 
-        int drained = queue.drainTo(consumer);
+        try {
+            int drained = queue.drainTo(consumer);
 
-        if (drained == 0) {
-            boolean hasNext = !endReached || computingNext;
-            if (!hasNext) {
-                int drainedAfterClosed = queue.drainTo(consumer);
-                if (drainedAfterClosed != 0) {
-                    notifyEventLoop();
+            if (drained == 0) {
+                boolean hasNext = !endReached || computingNext;
+                if (!hasNext) {
+                    int drainedAfterEnd = queue.drainTo(consumer);
+                    if (drainedAfterEnd != 0) {
+                        notifyEventLoop();
+                    }
                 }
+                return hasNext;
             }
-            return hasNext;
+            notifyEventLoop();
+            return true;
         }
-        notifyEventLoop();
-        return true;
+        finally {
+            checkNotClosing();
+        }
     }
 
 
     @SuppressWarnings("ConstantValue")
     @Override
     public final AsyncResult<T> peek() throws RuntimeException {
-        if (!started) {
-            throw new IllegalStateException("Not started");
-        }
+        checkStarted();
         throwExecutionExceptionIfRequired();
-        if (!iteratorNext.get().equals(IteratorNext.didNotCheck())) {
-            throw new IllegalStateException("Iteration in progress");
-        }
+        checkNotIterating();
 
-        T next = queue.peek();
-        if (next == null) {
-            if (endReached && !computingNext) {
-                T nextAfterClosed = queue.peek();
-                if (nextAfterClosed != null) {
-                    return AsyncResult.of(nextAfterClosed);
+        try {
+            T next = queue.peek();
+            if (next == null) {
+                if (endReached && !computingNext) {
+                    T nextAfterEnd = queue.peek();
+                    if (nextAfterEnd != null) {
+                        return AsyncResult.of(nextAfterEnd);
+                    }
+                    return AsyncResult.endReachedWithoutValue();
                 }
-                return AsyncResult.endReachedWithoutValue();
+                return AsyncResult.notReady();
             }
-            return AsyncResult.notReady();
+            return AsyncResult.of(next);
         }
-        return AsyncResult.of(next);
+        finally {
+            checkNotClosing();
+        }
     }
 
 
@@ -278,6 +304,19 @@ public abstract class AbstractAsyncProducer<T>
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Override
+    protected final void closeImpl() throws Exception {
+        List<T> remaining = new ArrayList<>();
+        IteratorNext<T> iteratorPending = iteratorNext.get();
+        if (iteratorPending.next != null) {
+            remaining.add(iteratorPending.next);
+        }
+        remaining.addAll(queue);
+        doClose(remaining);
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     /**
      * use to indicate end of data inside tryCompute,
      *  can be returned or called separately before the return in tryComputeNext
@@ -306,4 +345,13 @@ public abstract class AbstractAsyncProducer<T>
      * @return computed item, or null if not ready (call endReached() to indicate end of data)
      */
     abstract protected @Nullable T tryComputeNext() throws Exception;
+
+
+    /**
+     * @param remaining items already produced but not yet polled at the time of closing
+     */
+    @SuppressWarnings("RedundantThrows")
+    protected void doClose(List<T> remaining) throws Exception {
+        // optionally implemented by subclass
+    }
 }

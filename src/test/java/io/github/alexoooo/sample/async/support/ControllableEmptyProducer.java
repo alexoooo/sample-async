@@ -3,6 +3,7 @@ package io.github.alexoooo.sample.async.support;
 import io.github.alexoooo.sample.async.producer.AbstractAsyncProducer;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -89,7 +90,7 @@ public class ControllableEmptyProducer
     }
 
     @Override
-    protected void closeImpl() throws InterruptedException {
+    protected void doClose(List<Void> remaining) throws InterruptedException {
         closeLatch.await();
     }
 }

@@ -4,7 +4,9 @@ package io.github.alexoooo.sample.async.consumer;
 import io.github.alexoooo.sample.async.AbstractAsyncWorker;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -172,7 +174,12 @@ public abstract class AbstractAsyncConsumer<T>
             }
         }
         finally {
-            doClose();
+            List<T> remaining = new ArrayList<>();
+            if (pending != null) {
+                remaining.add(Objects.requireNonNull(pending));
+            }
+            remaining.addAll(queue);
+            doClose(remaining);
         }
     }
 
@@ -215,8 +222,11 @@ public abstract class AbstractAsyncConsumer<T>
     abstract protected boolean tryProcessNext(T item, boolean initialAttempt) throws Exception;
 
 
+    /**
+     * @param remaining items waiting to be consumed at the time of closing
+     */
     @SuppressWarnings("RedundantThrows")
-    protected void doClose() throws Exception {
+    protected void doClose(List<T> remaining) throws Exception {
         // optionally implemented by subclass
     }
 }

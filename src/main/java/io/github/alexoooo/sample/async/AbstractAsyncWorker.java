@@ -117,10 +117,7 @@ public abstract class AbstractAsyncWorker
             loopInThread();
         }
 
-        state.set(AsyncState.Closing);
         closeInThread();
-
-        state.set(AsyncState.Terminal);
     }
 
 
@@ -158,6 +155,9 @@ public abstract class AbstractAsyncWorker
 
 
     private void closeInThread() {
+        awaitFailedOrCloseRequested();
+
+        state.set(AsyncState.Closing);
         try {
             closeAsync();
             closeImpl();
@@ -167,6 +167,19 @@ public abstract class AbstractAsyncWorker
         }
         finally {
             closed.countDown();
+            state.set(AsyncState.Terminal);
+        }
+    }
+
+    @SuppressWarnings("BusyWait")
+    private void awaitFailedOrCloseRequested() {
+        while (!(failed() || closeRequested())) {
+            try {
+                Thread.sleep(10);
+            }
+            catch (InterruptedException e) {
+                offerFirstException(e);
+            }
         }
     }
 
@@ -185,7 +198,6 @@ public abstract class AbstractAsyncWorker
             }
             catch (Throwable t) {
                 offerFirstException(t);
-                throw new RuntimeException(t);
             }
         }
         return newRequest;

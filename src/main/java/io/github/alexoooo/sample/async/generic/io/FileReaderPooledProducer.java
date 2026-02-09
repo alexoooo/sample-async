@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Supplier;
@@ -94,10 +95,7 @@ public class FileReaderPooledProducer
 
 
     @Override
-    protected void closeAsyncImpl() {}
-
-    @Override
-    protected void closeImpl() throws Exception {
+    protected void doClose(List<FileChunk> remaining) throws Exception {
         Objects.requireNonNull(inputStream).close();
     }
 }

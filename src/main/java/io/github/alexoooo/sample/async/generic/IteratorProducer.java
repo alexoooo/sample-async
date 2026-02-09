@@ -4,6 +4,7 @@ import io.github.alexoooo.sample.async.producer.AbstractAsyncProducer;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ThreadFactory;
 
 
@@ -47,7 +48,7 @@ public class IteratorProducer<T>
 
 
     @Override
-    protected void closeImpl() throws Exception {
+    protected void doClose(List<T> remaining) throws Exception {
         if (iterator instanceof AutoCloseable closeable) {
             closeable.close();
         }

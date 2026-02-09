@@ -65,12 +65,4 @@ public class RepeatingProducer<T> extends AbstractAsyncProducer<T> {
         skipBackoff();
         return null;
     }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    @Override
-    protected void init() {}
-
-    @Override
-    protected void closeImpl() {}
 }

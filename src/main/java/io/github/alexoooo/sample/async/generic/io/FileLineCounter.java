@@ -61,8 +61,4 @@ public class FileLineCounter
 
         return true;
     }
-
-
-    @Override
-    protected void doClose() {}
 }

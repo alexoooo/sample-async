@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Asynchronous (background) worker thread with associated lifecycle (see: AsyncState).
- * Automatically closed when work is done or failure is encountered, can be closed externally at any time.
+ * Automatically closed when failure is encountered, can be closed externally at any time.
  * Thread-safe.
  */
 public interface AsyncWorker

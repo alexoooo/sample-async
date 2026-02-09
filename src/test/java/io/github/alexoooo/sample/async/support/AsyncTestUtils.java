@@ -7,6 +7,7 @@ import io.github.alexoooo.sample.async.AsyncWorker;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 
 public class AsyncTestUtils {
@@ -27,10 +28,21 @@ public class AsyncTestUtils {
     public static void awaitState(
             AsyncState target, AsyncWorker worker, Duration duration
     ) throws TimeoutException {
+        await(asyncWorker -> asyncWorker.state() == target, worker, duration);
+    }
+
+
+    public static void await(Predicate<AsyncWorker> condition, AsyncWorker worker) throws TimeoutException {
+        await(condition, worker, stateTransitionDelay);
+    }
+
+    public static void await(
+            Predicate<AsyncWorker> condition, AsyncWorker worker, Duration duration
+    ) throws TimeoutException {
         Instant deadline = Instant.now().plus(duration);
         while (true) {
-            AsyncState state = worker.state();
-            if (state.equals(target)) {
+            boolean test = condition.test(worker);
+            if (test) {
                 return;
             }
             if (deadline.isBefore(Instant.now())) {
