@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class QueueProducer<T> extends AbstractAsyncProducer<T> {
     //-----------------------------------------------------------------------------------------------------------------
     public static <T> QueueProducer<T> createStarted() {
-        QueueProducer<T> instance = new QueueProducer<>(1, Thread.ofPlatform().factory());
+        QueueProducer<T> instance = new QueueProducer<>(1, Thread::new);
         instance.start();
         return instance;
     }
@@ -51,19 +51,11 @@ public class QueueProducer<T> extends AbstractAsyncProducer<T> {
     protected @Nullable T tryComputeNext() {
         T value = queue.poll();
         if (value == null && ended.get()) {
-            T valueAfterEnded = queue.poll();
+            T valueAfterEnded = queue.poll(); // check again to protect from data race
             return valueAfterEnded != null
                     ? valueAfterEnded
                     : endReached();
         }
         return value;
     }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    @Override
-    protected void init() {}
-
-    @Override
-    protected void closeImpl() {}
 }
