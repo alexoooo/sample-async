@@ -82,12 +82,6 @@ public abstract class AbstractAsyncProducer<T>
         }
     }
 
-    private void checkNotClosing() {
-        if (closeRequested()) {
-            throw new IllegalStateException("Close requested");
-        }
-    }
-
     private void checkNotIterating() {
         if (!iteratorNext.get().equals(IteratorNext.didNotCheck())) {
             throw new IllegalStateException("Iteration in progress");
@@ -130,25 +124,20 @@ public abstract class AbstractAsyncProducer<T>
             checkNotIterating();
         }
 
-        try {
-            T next = queue.poll();
-            if (next == null) {
-                if (endReached && !computingNext) {
-                    T nextAfterClosed = queue.poll();
-                    if (nextAfterClosed != null) {
-                        return AsyncResult.of(nextAfterClosed, queue.isEmpty());
-                    }
-                    return AsyncResult.endReachedWithoutValue();
+        T next = queue.poll();
+        if (next == null) {
+            if (endReached && !computingNext) {
+                T nextAfterClosed = queue.poll();
+                if (nextAfterClosed != null) {
+                    return AsyncResult.of(nextAfterClosed, queue.isEmpty());
                 }
-                return AsyncResult.notReady();
+                return AsyncResult.endReachedWithoutValue();
             }
+            return AsyncResult.notReady();
+        }
 
-            notifyEventLoop();
-            return AsyncResult.of(next);
-        }
-        finally {
-            checkNotClosing();
-        }
+        notifyEventLoop();
+        return AsyncResult.of(next);
     }
 
 
@@ -158,25 +147,20 @@ public abstract class AbstractAsyncProducer<T>
         throwExecutionExceptionIfRequired();
         checkNotIterating();
 
-        try {
-            int drained = queue.drainTo(consumer);
+        int drained = queue.drainTo(consumer);
 
-            if (drained == 0) {
-                boolean hasNext = !endReached || computingNext;
-                if (!hasNext) {
-                    int drainedAfterEnd = queue.drainTo(consumer);
-                    if (drainedAfterEnd != 0) {
-                        notifyEventLoop();
-                    }
+        if (drained == 0) {
+            boolean hasNext = !endReached || computingNext;
+            if (!hasNext) {
+                int drainedAfterEnd = queue.drainTo(consumer);
+                if (drainedAfterEnd != 0) {
+                    notifyEventLoop();
                 }
-                return hasNext;
             }
-            notifyEventLoop();
-            return true;
+            return hasNext;
         }
-        finally {
-            checkNotClosing();
-        }
+        notifyEventLoop();
+        return true;
     }
 
 
@@ -187,23 +171,18 @@ public abstract class AbstractAsyncProducer<T>
         throwExecutionExceptionIfRequired();
         checkNotIterating();
 
-        try {
-            T next = queue.peek();
-            if (next == null) {
-                if (endReached && !computingNext) {
-                    T nextAfterEnd = queue.peek();
-                    if (nextAfterEnd != null) {
-                        return AsyncResult.of(nextAfterEnd);
-                    }
-                    return AsyncResult.endReachedWithoutValue();
+        T next = queue.peek();
+        if (next == null) {
+            if (endReached && !computingNext) {
+                T nextAfterEnd = queue.peek();
+                if (nextAfterEnd != null) {
+                    return AsyncResult.of(nextAfterEnd);
                 }
-                return AsyncResult.notReady();
+                return AsyncResult.endReachedWithoutValue();
             }
-            return AsyncResult.of(next);
+            return AsyncResult.notReady();
         }
-        finally {
-            checkNotClosing();
-        }
+        return AsyncResult.of(next);
     }
 
 

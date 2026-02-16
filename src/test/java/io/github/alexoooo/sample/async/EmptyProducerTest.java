@@ -56,11 +56,9 @@ public class EmptyProducerTest {
         producer.awaitCloseAsync();
         AsyncTestUtils.awaitState(AsyncState.Terminal, producer);
 
-        try {
-            producer.poll();
-            throw new AssertionFailedError();
-        }
-        catch (IllegalStateException expected) {}
+        AsyncResult<Void> afterResult = producer.poll();
+        assertNull(afterResult.value());
+        assertTrue(afterResult.endReached());
     }
 
 
