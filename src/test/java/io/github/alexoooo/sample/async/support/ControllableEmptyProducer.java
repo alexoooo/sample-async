@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class ControllableEmptyProducer
@@ -27,7 +28,7 @@ public class ControllableEmptyProducer
 
     //-----------------------------------------------------------------------------------------------------------------
     public ControllableEmptyProducer() {
-        super(1, Thread.ofPlatform().factory());
+        super(1, Thread.ofPlatform().daemon(false).factory());
     }
 
 
@@ -66,6 +67,10 @@ public class ControllableEmptyProducer
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public AtomicBoolean closeRequestedFlag() {
+        return closeRequested;
     }
 
 

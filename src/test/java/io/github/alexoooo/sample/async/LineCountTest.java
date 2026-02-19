@@ -137,7 +137,7 @@ public class LineCountTest
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    public Supplier<InputStream> generateLines(int lineCount) {
+    public static Supplier<InputStream> generateLines(int lineCount) {
         RandomGenerator random = new SplittableRandom(42);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         int newlineCount = lineCount - 1;
@@ -152,7 +152,7 @@ public class LineCountTest
     }
 
 
-    public Supplier<InputStream> generateBytes(int byteCount) {
+    public static Supplier<InputStream> generateBytes(int byteCount) {
         RandomGenerator random = new SplittableRandom(42);
         byte[] bytes = new byte[byteCount];
         random.nextBytes(bytes);
