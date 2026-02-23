@@ -295,9 +295,9 @@ public class DynamicSemaphoreTest {
             assertTrue(bigAcquired.await(2, TimeUnit.SECONDS));
 
             // While the big request holds its permits the limit must be expanded.
-            assertEquals(softLimit + 25, semaphore.getCurrentLimit());
+            assertEquals(25, semaphore.getCurrentLimit());
             assertEquals(25, semaphore.getUsed());
-            assertEquals(softLimit, semaphore.getAvailable()); // limit - used = 35 - 25 = 10
+            assertEquals(0, semaphore.getAvailable()); // limit - used = 35 - 25 = 10
 
             canRelease.countDown();
         }
@@ -506,9 +506,9 @@ public class DynamicSemaphoreTest {
             assertTrue(bigAcquired.await(2, TimeUnit.SECONDS));
 
             String s = semaphore.toString();
-            assertTrue(s.contains("used=25"),         "toString must contain used=25, got: " + s);
-            assertTrue(s.contains("available=10"),    "toString must contain available=10, got: " + s);
-            assertTrue(s.contains("currentLimit=35"), "toString must contain currentLimit=35, got: " + s);
+            assertTrue(s.contains("used=25"), "toString must contain used=25, got: " + s);
+            assertTrue(s.contains("available=0"), "toString must contain available=10, got: " + s);
+            assertTrue(s.contains("currentLimit=25"), "toString must contain currentLimit=25, got: " + s);
             assertTrue(s.contains("bigRequestActive=true"), "toString must reflect big request active, got: " + s);
 
             canRelease.countDown();
