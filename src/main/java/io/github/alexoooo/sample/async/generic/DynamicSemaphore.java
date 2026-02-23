@@ -20,13 +20,11 @@ public final class DynamicSemaphore
 {
     //-----------------------------------------------------------------------------------------------------------------
     private final int softLimit;
-    private int temporaryLimit;
+    private int bigRequestPermits;
 
     private final ReentrantLock lock = new ReentrantLock();
-
     /** Signalled whenever {@code used} decreases, i.e. permits are released */
     private final Condition permitAvailable = lock.newCondition();
-
     /** Signalled when the big-request slot is freed */
     private final Condition bigSlotAvailable = lock.newCondition();
 
@@ -55,10 +53,10 @@ public final class DynamicSemaphore
         try {
             if (isBig) {
                 // Wait for any prior big request to fully complete, then claim the slot.
-                while (temporaryLimit != 0) {
+                while (bigRequestPermits != 0) {
                     bigSlotAvailable.await();
                 }
-                temporaryLimit = permits; // blocks new small acquires from here on
+                bigRequestPermits = permits; // blocks new small acquires from here on
 
                 // Wait for all in-flight permits to drain so we run alone.
                 while (used > 0) {
@@ -68,7 +66,7 @@ public final class DynamicSemaphore
             }
             else {
                 // Block while a big request owns the semaphore, or there isn't room.
-                while (temporaryLimit != 0 || used + permits > softLimit) {
+                while (bigRequestPermits != 0 || used + permits > softLimit) {
                     permitAvailable.await();
                 }
             }
@@ -76,9 +74,9 @@ public final class DynamicSemaphore
             used += permits;
         }
         catch (InterruptedException e) {
-            if (isBig) {
-                // We held the big slot but never acquired permits — release the slot.
-                temporaryLimit = 0;
+            if (isBig && bigRequestPermits == permits) {
+                // We held the big slot but never acquired permits, release the slot
+                bigRequestPermits = 0;
                 bigSlotAvailable.signal();
                 permitAvailable.signalAll(); // unblock small waiters we were holding back
             }
@@ -95,18 +93,22 @@ public final class DynamicSemaphore
      * Must be called with the same value that was passed to acquire.
      */
     public void release(int permits) {
-        if (permits < 1) throw new IllegalArgumentException("permits must be >= 1");
+        if (permits < 1) {
+            throw new IllegalArgumentException("permits must be >= 1");
+        }
 
         lock.lock();
         try {
-            if (used < permits)
+            if (used < permits) {
                 throw new IllegalStateException("Released more permits than acquired");
-
+            }
             used -= permits;
 
-            if (permits == temporaryLimit) {
-                // Big request is done: surrender the slot before waking waiters.
-                temporaryLimit = 0;
+            if (permits > softLimit) {
+                if (permits != bigRequestPermits) {
+                    throw new IllegalStateException("Unexpected " + permits + " vs " + bigRequestPermits);
+                }
+                bigRequestPermits = 0;
                 bigSlotAvailable.signal();
             }
 
@@ -130,7 +132,7 @@ public final class DynamicSemaphore
      */
     public int getCurrentLimit() {
         lock.lock();
-        try { return softLimit + temporaryLimit; }
+        try { return softLimit + bigRequestPermits; }
         finally { lock.unlock(); }
     }
 
@@ -144,7 +146,7 @@ public final class DynamicSemaphore
     /** Permits available right now without blocking. */
     public int getAvailable() {
         lock.lock();
-        try { return softLimit + temporaryLimit - used; }
+        try { return softLimit + bigRequestPermits - used; }
         finally { lock.unlock(); }
     }
 
@@ -152,12 +154,12 @@ public final class DynamicSemaphore
     public String toString() {
         lock.lock();
         try {
-            int limit = softLimit + temporaryLimit;
+            int limit = softLimit + bigRequestPermits;
             return "DynamicSemaphore{used=" + used
                     + ", available=" + (limit - used)
                     + ", currentLimit=" + limit
                     + ", softLimit=" + softLimit
-                    + ", bigRequestActive=" + (temporaryLimit != 0) + "}";
+                    + ", bigRequestActive=" + (bigRequestPermits != 0) + "}";
         }
         finally {
             lock.unlock();
