@@ -62,7 +62,6 @@ public final class DynamicSemaphore
                 while (used > 0) {
                     permitAvailable.await();
                 }
-                // Limit is now effectively softLimit + permits; grab them atomically.
             }
             else {
                 // Block while a big request owns the semaphore, or there isn't room.
@@ -158,8 +157,7 @@ public final class DynamicSemaphore
             return "DynamicSemaphore{used=" + used
                     + ", available=" + (limit - used)
                     + ", currentLimit=" + limit
-                    + ", softLimit=" + softLimit
-                    + ", bigRequestActive=" + (temporaryBigLimit != 0) + "}";
+                    + ", softLimit=" + softLimit + "}";
         }
         finally {
             lock.unlock();
