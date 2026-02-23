@@ -506,10 +506,10 @@ public class DynamicSemaphoreTest {
             assertTrue(bigAcquired.await(2, TimeUnit.SECONDS));
 
             String s = semaphore.toString();
-            assertTrue(s.contains("used=25"), "toString must contain used=25, got: " + s);
-            assertTrue(s.contains("available=0"), "toString must contain available=10, got: " + s);
-            assertTrue(s.contains("currentLimit=25"), "toString must contain currentLimit=25, got: " + s);
-            assertTrue(s.contains("bigRequestActive=true"), "toString must reflect big request active, got: " + s);
+            assertTrue(s.contains("used=25"), s);
+            assertTrue(s.contains("available=0"), s);
+            assertTrue(s.contains("currentLimit=25"), s);
+            assertTrue(s.contains("softLimit=10"), s);
 
             canRelease.countDown();
         }

@@ -98,15 +98,13 @@ public abstract class AbstractAsyncProducer<T>
 
     @Override
     public final boolean isDone() {
-        if (failed()) {
-            return true;
-        }
+        return failed() ||
+                !canComputeNext() && queue.isEmpty();
+    }
 
-        if (!endReached) {
-            return false;
-        }
 
-        return !computingNext && queue.isEmpty();
+    private boolean canComputeNext() {
+        return computingNext || !endReached && !closeRequested();
     }
 
 
@@ -125,7 +123,7 @@ public abstract class AbstractAsyncProducer<T>
 
         T next = queue.poll();
         if (next == null) {
-            if (endReached && !computingNext) {
+            if (!canComputeNext()) {
                 T nextAfterClosed = queue.poll();
                 if (nextAfterClosed != null) {
                     return AsyncResult.of(nextAfterClosed, queue.isEmpty());
@@ -149,21 +147,19 @@ public abstract class AbstractAsyncProducer<T>
         int drained = queue.drainTo(consumer);
 
         if (drained == 0) {
-            boolean hasNext = !endReached || computingNext;
-            if (!hasNext) {
+            boolean canComputeNext = canComputeNext();
+            if (!canComputeNext) {
                 int drainedAfterEnd = queue.drainTo(consumer);
                 if (drainedAfterEnd != 0) {
                     notifyEventLoop();
                 }
             }
-            return hasNext;
+            return canComputeNext;
         }
         notifyEventLoop();
         return true;
     }
 
-
-    @SuppressWarnings("ConstantValue")
     @Override
     public final AsyncResult<T> peek() throws RuntimeException {
         checkStarted();
@@ -172,7 +168,7 @@ public abstract class AbstractAsyncProducer<T>
 
         T next = queue.peek();
         if (next == null) {
-            if (endReached && !computingNext) {
+            if (!canComputeNext()) {
                 T nextAfterEnd = queue.peek();
                 if (nextAfterEnd != null) {
                     return AsyncResult.of(nextAfterEnd);

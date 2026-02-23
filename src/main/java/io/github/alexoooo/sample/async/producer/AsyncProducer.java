@@ -19,8 +19,8 @@ public interface AsyncProducer<T>
     /**
      * If poll indicates that endReached, then this will return true.
      * But if isDone returns false, that doesn't mean that there have to be more items to poll,
-     *  i.e. it's possible for isDone to return false and then true without any items being produced.
-     * @return true if failed, or if finished successfully and all available results have been consumed
+     *      i.e. due to data races it's possible for isDone to be false and then true without any items being produced.
+     * @return true if failed, or if finished successfully (or closed) and all available results have been consumed
      */
     boolean isDone();
 
@@ -34,6 +34,7 @@ public interface AsyncProducer<T>
 
 
     /**
+     * AsyncResult.endReached will be true if failed, or if finished work or closed and pending item queue drained
      * @return try to read next available value, which might be the last one (or more might potentially be available)
      * @throws RuntimeException to report asynchronous background failure
      * @throws IllegalStateException if not started
