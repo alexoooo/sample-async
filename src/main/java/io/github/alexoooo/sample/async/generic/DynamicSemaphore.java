@@ -48,6 +48,7 @@ public final class DynamicSemaphore
         if (permits < 1) throw new IllegalArgumentException("permits must be >= 1");
 
         boolean isBig = permits > softLimit;
+        boolean acquireBig = false;
 
         lock.lockInterruptibly();
         try {
@@ -57,6 +58,7 @@ public final class DynamicSemaphore
                     bigSlotAvailable.await();
                 }
                 temporaryBigLimit = permits; // blocks new small acquires from here on
+                acquireBig = true;
 
                 // Wait for all in-flight permits to drain so we run alone.
                 while (used > 0) {
@@ -73,11 +75,10 @@ public final class DynamicSemaphore
             used += permits;
         }
         catch (InterruptedException e) {
-            if (isBig && temporaryBigLimit == permits) {
-                // We held the big slot but never acquired permits, release the slot
+            if (acquireBig) {
                 temporaryBigLimit = 0;
                 bigSlotAvailable.signal();
-                permitAvailable.signalAll(); // unblock small waiters we were holding back
+                permitAvailable.signalAll();
             }
             throw e;
         }
@@ -103,7 +104,7 @@ public final class DynamicSemaphore
             }
             used -= permits;
 
-            if (permits > softLimit) {
+            if (temporaryBigLimit != 0) {
                 if (permits != temporaryBigLimit) {
                     throw new IllegalStateException("Unexpected " + permits + " vs " + temporaryBigLimit);
                 }
@@ -122,7 +123,7 @@ public final class DynamicSemaphore
     //---- Accessors --------------------------------------------------------------------------------------------------
     /** The configured soft limit; constant after construction. */
     public int getSoftLimit() {
-        return softLimit; // final field, no lock needed
+        return softLimit;
     }
 
     /**

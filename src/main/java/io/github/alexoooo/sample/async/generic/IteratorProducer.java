@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.ThreadFactory;
 
 
+// TODO: handle closeAsync on iterator to avoid deadlock
 public class IteratorProducer<T>
         extends AbstractAsyncProducer<T>
 {
