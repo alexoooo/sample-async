@@ -292,14 +292,17 @@ public abstract class AbstractAsyncWorker
 
 
     /**
+     * Invoked once on an arbitrary thread before closeImpl.
+     * Note that you might need to invoke it again in closeImpl (on the work thread)
+     *      due to multi threading race condition (where resource for closeAsync becomes available during work).
      * If closing is done in stages, initiate the first asynchronous closing sequence (executes on an unknown thread,
      *      to be followed by a synchronous close method invocation).
      * If there is no concept of closing stages then this method doesn't need to be implemented,
      *      if implemented it will be automatically invoked by the close method.
      * One example of where this is useful is if the main thread is blocked and needs to be interrupted to close,
      *     then the interruption can be handled via closeAsync.
-     * Idempotent (can be called multiple times).
      * Doesn't throw anything, even if an exception was previously thrown in the background.
+     * WARNING: any fields accessed here must be atomic or volatile
      */
     protected void closeAsyncImpl() throws Exception {
         // optionally implemented by subclass
