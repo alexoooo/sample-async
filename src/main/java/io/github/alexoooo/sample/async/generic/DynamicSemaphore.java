@@ -20,7 +20,6 @@ public final class DynamicSemaphore
 {
     //-----------------------------------------------------------------------------------------------------------------
     private final int softLimit;
-    private int temporaryBigLimit;
 
     private final ReentrantLock lock = new ReentrantLock();
     /** Signalled whenever {@code used} decreases, i.e. permits are released */
@@ -30,6 +29,17 @@ public final class DynamicSemaphore
 
     /** Permits currently held by all callers (big and small) */
     private int used;
+
+    /**
+     * Zero when no big request is active. Non-zero when a big request holds the slot
+     * (whether draining or running) — set to the big permit count (which is always
+     * {@code > softLimit}) when the slot is claimed, cleared back to zero on release
+     * or interrupt. {@code Math.max(softLimit, temporaryBigLimit)} gives the current
+     * effective limit at any point in time.
+     */
+    private int temporaryBigLimit;
+    /** True only after the big request finishes draining and actually holds its permits. */
+    private boolean bigRequestActive;
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -48,22 +58,23 @@ public final class DynamicSemaphore
         if (permits < 1) throw new IllegalArgumentException("permits must be >= 1");
 
         boolean isBig = permits > softLimit;
-        boolean acquireBig = false;
+        boolean acquiredBig = false;
 
         lock.lockInterruptibly();
         try {
             if (isBig) {
-                // Wait for any prior big request to fully complete, then claim the slot.
+                // Wait for any prior big request to fully complete, then claim the slot
                 while (temporaryBigLimit != 0) {
                     bigSlotAvailable.await();
                 }
-                temporaryBigLimit = permits; // blocks new small acquires from here on
-                acquireBig = true;
+                temporaryBigLimit = permits;
+                acquiredBig = true;
 
-                // Wait for all in-flight permits to drain so we run alone.
+                // Wait for all in-flight permits to drain so we run alone
                 while (used > 0) {
                     permitAvailable.await();
                 }
+                bigRequestActive = true;
             }
             else {
                 // Block while a big request owns the semaphore, or there isn't room.
@@ -75,8 +86,9 @@ public final class DynamicSemaphore
             used += permits;
         }
         catch (InterruptedException e) {
-            if (acquireBig) {
+            if (acquiredBig) {
                 temporaryBigLimit = 0;
+                bigRequestActive = false;
                 bigSlotAvailable.signal();
                 permitAvailable.signalAll();
             }
@@ -104,11 +116,12 @@ public final class DynamicSemaphore
             }
             used -= permits;
 
-            if (temporaryBigLimit != 0) {
+            if (bigRequestActive) {
                 if (permits != temporaryBigLimit) {
                     throw new IllegalStateException("Unexpected " + permits + " vs " + temporaryBigLimit);
                 }
                 temporaryBigLimit = 0;
+                bigRequestActive = false;
                 bigSlotAvailable.signal();
             }
 
