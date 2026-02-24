@@ -11,7 +11,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>A request is <em>small</em> if {@code permits <= softLimit} and <em>big</em> otherwise.
  * Small requests compete for up to {@code softLimit} permits in the usual way.
  * A big request waits for all in-flight permits to drain, then runs alone with the limit
- * temporarily expanded to {@code softLimit + bigRequestPermits}, then restores it on release.
+ * temporarily expanded to {@code temporaryBigLimit}, then restores it on release.
  * Only one big request may be active (or draining) at a time.
  *
  * <p>Thread-safe. All mutable state is guarded by a single {@link ReentrantLock}.
@@ -53,6 +53,7 @@ public final class DynamicSemaphore
     /**
      * Acquires {@code permits} permits, blocking until they are available.
      * Big requests ({@code permits > softLimit}) wait for a drain and run alone.
+     * If interrupted while draining, the big slot is automatically released.
      */
     public void acquire(int permits) throws InterruptedException {
         if (permits < 1) throw new IllegalArgumentException("permits must be >= 1");
@@ -119,6 +120,9 @@ public final class DynamicSemaphore
             if (bigRequestActive) {
                 if (permits != temporaryBigLimit) {
                     throw new IllegalStateException("Unexpected " + permits + " vs " + temporaryBigLimit);
+                }
+                if (used != 0) {
+                    throw new IllegalStateException("Unexpected " + used);
                 }
                 temporaryBigLimit = 0;
                 bigRequestActive = false;
