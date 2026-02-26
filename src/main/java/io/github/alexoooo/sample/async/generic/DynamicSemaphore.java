@@ -143,15 +143,21 @@ public final class DynamicSemaphore
         return softLimit;
     }
 
+
     /**
      * The current effective limit: {@code softLimit} normally, or
      * {@code softLimit + bigRequestPermits} while a big request is active.
      */
     public int getCurrentLimit() {
         lock.lock();
-        try { return Math.max(softLimit, temporaryBigLimit); }
+        try { return calculateCurrentLimit(); }
         finally { lock.unlock(); }
     }
+
+    private int calculateCurrentLimit() {
+        return Math.max(softLimit, temporaryBigLimit);
+    }
+
 
     /** Total permits currently held by all callers. */
     public int getUsed() {
@@ -160,21 +166,26 @@ public final class DynamicSemaphore
         finally { lock.unlock(); }
     }
 
+
     /** Permits available right now without blocking. */
     public int getAvailable() {
         lock.lock();
-        try { return Math.max(softLimit, temporaryBigLimit) - used; }
+        try { return calculateAvailable(); }
         finally { lock.unlock(); }
     }
+
+    private int calculateAvailable() {
+        return calculateCurrentLimit() - used;
+    }
+
 
     @Override
     public String toString() {
         lock.lock();
         try {
-            int limit = Math.max(softLimit, temporaryBigLimit);
             return "DynamicSemaphore{used=" + used
-                    + ", available=" + (limit - used)
-                    + ", currentLimit=" + limit
+                    + ", available=" + calculateAvailable()
+                    + ", currentLimit=" + calculateCurrentLimit()
                     + ", softLimit=" + softLimit + "}";
         }
         finally {

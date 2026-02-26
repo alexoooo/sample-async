@@ -1,5 +1,7 @@
 package io.github.alexoooo.sample.async;
 
+
+// TODO: split Terminal into Closed/Failed ?
 public enum AsyncState {
     Created,
     Starting,
