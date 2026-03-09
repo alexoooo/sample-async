@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async.generic;
+package io.github.alexoooo.sample.async.util;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;

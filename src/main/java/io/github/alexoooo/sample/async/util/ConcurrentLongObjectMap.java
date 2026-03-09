@@ -1,4 +1,4 @@
-package io.github.alexoooo.sample.async.generic;
+package io.github.alexoooo.sample.async.util;
 
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;

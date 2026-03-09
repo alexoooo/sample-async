@@ -1,6 +1,5 @@
-package io.github.alexoooo.sample.async;
+package io.github.alexoooo.sample.async.util;
 
-import io.github.alexoooo.sample.async.generic.DynamicSemaphore;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -480,13 +479,13 @@ public class DynamicSemaphoreTest {
     void toStringReflectsState() throws InterruptedException {
         semaphore.acquire(4);
         String s = semaphore.toString();
-        assertTrue(s.contains("used=4"),      "toString must contain used=4, got: " + s);
-        assertTrue(s.contains("available=6"), "toString must contain available=6, got: " + s);
+        assertTrue(s.contains("used=4"));
+        assertTrue(s.contains("available=6"));
         semaphore.release(4);
 
         String idle = semaphore.toString();
-        assertTrue(idle.contains("used=0"),       "toString must contain used=0, got: " + idle);
-        assertTrue(idle.contains("available=10"), "toString must contain available=10, got: " + idle);
+        assertTrue(idle.contains("used=0"));
+        assertTrue(idle.contains("available=10"));
     }
 
     @Test

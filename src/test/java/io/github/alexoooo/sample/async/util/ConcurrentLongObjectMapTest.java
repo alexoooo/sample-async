@@ -1,7 +1,6 @@
-package io.github.alexoooo.sample.async;
+package io.github.alexoooo.sample.async.util;
 
 
-import io.github.alexoooo.sample.async.generic.ConcurrentLongObjectMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
