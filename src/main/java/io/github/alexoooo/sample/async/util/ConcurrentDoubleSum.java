@@ -12,7 +12,7 @@ public class ConcurrentDoubleSum
 
     //-----------------------------------------------------------------------------------------------------------------
     private final double[] sums;
-    private final double[] comps;
+    private final double[] sumCompensations;
     private final ReentrantLock[] locks;
 
 
@@ -23,7 +23,7 @@ public class ConcurrentDoubleSum
 
     public ConcurrentDoubleSum(int stripeCount) {
         sums = new double[stripeCount];
-        comps = new double[stripeCount];
+        sumCompensations = new double[stripeCount];
         locks = new ReentrantLock[stripeCount];
         for (int i = 0; i < stripeCount; i++) {
             locks[i] = new ReentrantLock();
@@ -40,15 +40,17 @@ public class ConcurrentDoubleSum
             double s = sums[slot];
             double t = s + value;
             if (Double.isFinite(t)) {
-                comps[slot] += Math.abs(s) >= Math.abs(value)
+                sumCompensations[slot] += Math.abs(s) >= Math.abs(value)
                         ? (s - t) + value
                         : (value - t) + s;
             }
             sums[slot] = t;
-        } finally {
+        }
+        finally {
             lock.unlock();
         }
     }
+
 
     public double sum() {
         for (ReentrantLock l : locks) {
@@ -58,7 +60,7 @@ public class ConcurrentDoubleSum
             double[] merged = new double[2];
             for (int i = 0; i < locks.length; i++) {
                 neumaierAdd(merged, sums[i]);
-                neumaierAdd(merged, comps[i]);
+                neumaierAdd(merged, sumCompensations[i]);
             }
             return merged[0] + merged[1];
         }
@@ -77,16 +79,6 @@ public class ConcurrentDoubleSum
                     : (value - t) + c[0];
         }
         c[0] = t;
-//        double t = c[0] + value;
-//        if (Double.isInfinite(t)) {
-//            // No meaningful compensation possible; just accumulate
-//            c[0] = t;
-//        } else {
-//            c[1] += Math.abs(c[0]) >= Math.abs(value)
-//                    ? (c[0] - t) + value
-//                    : (value - t) + c[0];
-//            c[0] = t;
-//        }
     }
 
 
@@ -97,7 +89,7 @@ public class ConcurrentDoubleSum
         try {
             for (int i = 0; i < locks.length; i++) {
                 sums[i]  = 0.0;
-                comps[i] = 0.0;
+                sumCompensations[i] = 0.0;
             }
         }
         finally {
