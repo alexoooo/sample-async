@@ -21,11 +21,11 @@ public final class DynamicSemaphore
     //-----------------------------------------------------------------------------------------------------------------
     private final int softLimit;
 
-    private final ReentrantLock lock = new ReentrantLock();
+    private final ReentrantLock lock;
     /** Signalled whenever {@code used} decreases, i.e. permits are released */
-    private final Condition permitAvailable = lock.newCondition();
+    private final Condition permitAvailable;
     /** Signalled when the big-request slot is freed */
-    private final Condition bigSlotAvailable = lock.newCondition();
+    private final Condition bigSlotAvailable;
 
     /** Permits currently held by all callers (big and small) */
     private int used;
@@ -44,8 +44,17 @@ public final class DynamicSemaphore
 
     //-----------------------------------------------------------------------------------------------------------------
     public DynamicSemaphore(int softLimit) {
-        if (softLimit < 1) throw new IllegalArgumentException("softLimit must be >= 1");
+        this(softLimit, true);
+    }
+    public DynamicSemaphore(int softLimit, boolean fair) {
+        if (softLimit < 1) {
+            throw new IllegalArgumentException("softLimit must be >= 1");
+        }
         this.softLimit = softLimit;
+
+        lock = new ReentrantLock(fair);
+        permitAvailable = lock.newCondition();
+        bigSlotAvailable = lock.newCondition();
     }
 
 
