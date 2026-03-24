@@ -1,5 +1,9 @@
 package io.github.alexoooo.sample.async.util;
 
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -19,6 +23,14 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class DynamicSemaphore
 {
     //-----------------------------------------------------------------------------------------------------------------
+    private record Waiter(
+            int permits,
+            boolean isBig,
+            Condition ready
+    ) {}
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private final int softLimit;
 
     private final ReentrantLock lock;
@@ -26,6 +38,9 @@ public final class DynamicSemaphore
     private final Condition permitAvailable;
     /** Signalled when the big-request slot is freed */
     private final Condition bigSlotAvailable;
+
+    /** Used only in fair mode; head-of-queue waiter is the only one allowed to proceed. */
+    private final @Nullable Deque<Waiter> waitersOrNull;
 
     /** Permits currently held by all callers (big and small) */
     private int used;
@@ -44,8 +59,9 @@ public final class DynamicSemaphore
 
     //-----------------------------------------------------------------------------------------------------------------
     public DynamicSemaphore(int softLimit) {
-        this(softLimit, true);
+        this(softLimit, false);
     }
+
     public DynamicSemaphore(int softLimit, boolean fair) {
         if (softLimit < 1) {
             throw new IllegalArgumentException("softLimit must be >= 1");
@@ -55,6 +71,7 @@ public final class DynamicSemaphore
         lock = new ReentrantLock(fair);
         permitAvailable = lock.newCondition();
         bigSlotAvailable = lock.newCondition();
+        waitersOrNull = fair ? new ArrayDeque<>() : null;
     }
 
 
@@ -65,8 +82,20 @@ public final class DynamicSemaphore
      * If interrupted while draining, the big slot is automatically released.
      */
     public void acquire(int permits) throws InterruptedException {
-        if (permits < 1) throw new IllegalArgumentException("permits must be >= 1");
+        if (permits < 1) {
+            throw new IllegalArgumentException("permits must be >= 1");
+        }
 
+        if (waitersOrNull != null) {
+            acquireFair(permits, waitersOrNull);
+        }
+        else {
+            acquireUnfair(permits);
+        }
+    }
+
+
+    private void acquireUnfair(int permits) throws InterruptedException {
         boolean isBig = permits > softLimit;
         boolean acquiredBig = false;
 
@@ -110,6 +139,74 @@ public final class DynamicSemaphore
     }
 
 
+    private void acquireFair(int permits, Deque<Waiter> waiters) throws InterruptedException {
+        final boolean isBig = permits > softLimit;
+        final Waiter me = new Waiter(permits, isBig, lock.newCondition());
+
+        boolean reservedBigSlot = false;
+        lock.lockInterruptibly();
+        try {
+            waiters.addLast(me);
+
+            for (;;) {
+                while (waiters.peekFirst() != me) {
+                    me.ready.await();
+                }
+
+                if (isBig) {
+                    if (temporaryBigLimit != 0) {
+                        me.ready.await();
+                        continue;
+                    }
+
+                    temporaryBigLimit = permits;
+                    reservedBigSlot = true;
+
+                    while (used > 0) {
+                        me.ready.await();
+                    }
+
+                    bigRequestActive = true;
+                }
+                else if (temporaryBigLimit != 0 || used + permits > softLimit) {
+                    me.ready.await();
+                    continue;
+                }
+
+                used += permits;
+                waiters.removeFirst();
+                signalHeadLocked(waiters);
+                return;
+            }
+        }
+        catch (InterruptedException e) {
+            if (reservedBigSlot && !bigRequestActive) {
+                temporaryBigLimit = 0;
+            }
+
+            if (waiters.remove(me)) {
+                signalHeadLocked(waiters);
+            }
+            else if (reservedBigSlot && !bigRequestActive) {
+                signalHeadLocked(waiters);
+            }
+
+            throw e;
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+
+    private void signalHeadLocked(Deque<Waiter> waiters) {
+        if (!waiters.isEmpty()) {
+            waiters.peekFirst().ready.signal();
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     /**
      * Releases {@code permits} permits previously obtained via {@link #acquire}.
      * Must be called with the same value that was passed to acquire.
@@ -119,6 +216,16 @@ public final class DynamicSemaphore
             throw new IllegalArgumentException("permits must be >= 1");
         }
 
+        if (waitersOrNull != null) {
+            releaseFair(permits, waitersOrNull);
+        }
+        else {
+            releaseUnfair(permits);
+        }
+    }
+
+
+    private void releaseUnfair(int permits) {
         lock.lock();
         try {
             if (used < permits) {
@@ -141,6 +248,33 @@ public final class DynamicSemaphore
             permitAvailable.signalAll();
         }
         finally {
+            lock.unlock();
+        }
+    }
+
+
+    private void releaseFair(int permits, Deque<Waiter> waiters) {
+        lock.lock();
+        try {
+            if (used < permits) {
+                throw new IllegalStateException("Released more permits than acquired");
+            }
+
+            used -= permits;
+
+            if (bigRequestActive) {
+                if (permits != temporaryBigLimit) {
+                    throw new IllegalStateException("Unexpected " + permits + " vs " + temporaryBigLimit);
+                }
+                if (used != 0) {
+                    throw new IllegalStateException("Unexpected " + used);
+                }
+                temporaryBigLimit = 0;
+                bigRequestActive = false;
+            }
+
+            signalHeadLocked(waiters);
+        } finally {
             lock.unlock();
         }
     }

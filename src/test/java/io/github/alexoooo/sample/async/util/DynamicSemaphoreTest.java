@@ -17,10 +17,14 @@ public class DynamicSemaphoreTest {
     private final static int softLimit = 10;
 
     DynamicSemaphore semaphore;
+//    DynamicSemaphoreV2 semaphore;
 
     @BeforeEach
     void setUp() {
-        semaphore = new DynamicSemaphore(10);
+//        semaphore = new DynamicSemaphore(10, Math.random() < 0.5);
+//        semaphore = new DynamicSemaphore(10, false);
+        semaphore = new DynamicSemaphore(10, true);
+//        semaphore = new DynamicSemaphoreV2(10);
     }
 
 
